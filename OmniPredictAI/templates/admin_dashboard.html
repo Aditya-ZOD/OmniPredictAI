@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4 px-4 px-lg-5">
+    <div class="row align-items-center mb-4">
+        <div class="col">
+            <h1 class="fw-bold text-light mb-1 fs-2">
+                <i class="bi bi-shield-lock text-gradient-primary me-2"></i>Admin Dashboard
+            </h1>
+            <p class="text-secondary-custom mb-0">Overview of platform usage and model performance.</p>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-md-6 col-xl-4">
+            <div class="stat-card p-3 rounded-4 border border-secondary-subtle h-100">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="text-secondary-custom small">Total Users</span>
+                    <span class="stat-icon bg-primary-subtle rounded-2 p-1"><i class="bi bi-people text-primary"></i></span>
+                </div>
+                <h3 class="text-light fw-bold mb-0">{{ stats.total_users }}</h3>
+            </div>
+        </div>
+        <div class="col-12 col-md-6 col-xl-4">
+            <div class="stat-card p-3 rounded-4 border border-secondary-subtle h-100">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="text-secondary-custom small">Total Datasets</span>
+                    <span class="stat-icon bg-success-subtle rounded-2 p-1"><i class="bi bi-database text-success"></i></span>
+                </div>
+                <h3 class="text-light fw-bold mb-0">{{ stats.total_datasets }}</h3>
+            </div>
+        </div>
+        <div class="col-12 col-md-6 col-xl-4">
+            <div class="stat-card p-3 rounded-4 border border-secondary-subtle h-100">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="text-secondary-custom small">Total Predictions</span>
+                    <span class="stat-icon bg-info-subtle rounded-2 p-1"><i class="bi bi-lightning-charge text-info"></i></span>
+                </div>
+                <h3 class="text-light fw-bold mb-0">{{ stats.total_predictions }}</h3>
+            </div>
+        </div>
+        <div class="col-12 col-md-6 col-xl-4">
+            <div class="stat-card p-3 rounded-4 border border-secondary-subtle h-100">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="text-secondary-custom small">Most Used Algorithm</span>
+                    <span class="stat-icon bg-warning-subtle rounded-2 p-1"><i class="bi bi-cpu text-warning"></i></span>
+                </div>
+                <h3 class="text-light fw-bold mb-0">{{ stats.most_used_algorithm }}</h3>
+            </div>
+        </div>
+        <div class="col-12 col-md-6 col-xl-4">
+            <div class="stat-card p-3 rounded-4 border border-secondary-subtle h-100">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="text-secondary-custom small">Best Average Accuracy</span>
+                    <span class="stat-icon bg-secondary-subtle rounded-2 p-1"><i class="bi bi-award text-secondary"></i></span>
+                </div>
+                <h3 class="text-light fw-bold mb-0">
+                    {% if stats.best_average_accuracy is not none %}
+                        {{ (stats.best_average_accuracy * 100) | round(2) }}%
+                    {% else %}
+                        N/A
+                    {% endif %}
+                </h3>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

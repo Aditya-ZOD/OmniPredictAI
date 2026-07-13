@@ -1,0 +1,314 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4 px-4 px-lg-5">
+
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb breadcrumb-custom">
+            <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}" class="text-secondary-custom text-decoration-none">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('preprocess', dataset_id=record.id) }}" class="text-secondary-custom text-decoration-none">{{ record.original_name }}</a></li>
+            <li class="breadcrumb-item active text-light" aria-current="page">Predict</li>
+        </ol>
+    </nav>
+
+    <!-- Page Header -->
+    <div class="row align-items-center mb-5 g-3">
+        <div class="col">
+            <div class="d-flex align-items-center gap-3 mb-2">
+                <div class="brand-icon-wrapper">
+                    <i class="bi bi-lightning-charge-fill text-gradient-primary fs-3"></i>
+                </div>
+                <h1 class="fw-bold text-light fs-2 mb-0">AI Prediction Engine</h1>
+            </div>
+            <p class="text-secondary-custom mb-0">
+                Dataset: <strong class="text-light">{{ record.original_name }}</strong>
+                &nbsp;·&nbsp; Predicting: <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-1 rounded-pill">{{ target_column or 'target' }}</span>
+                &nbsp;·&nbsp; Task: <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-1 rounded-pill text-capitalize">{{ problem_type }}</span>
+            </p>
+        </div>
+        <div class="col-auto d-flex gap-2">
+            <a href="{{ url_for('preprocess', dataset_id=record.id) }}" class="btn btn-outline-light-custom rounded-pill px-4">
+                <i class="bi bi-gear me-2"></i>Preprocessing
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-4">
+
+        <!-- ── LEFT: Model Info + Input Form ─────────────────────────────── -->
+        <div class="col-xl-5">
+
+            <!-- Model Intel Cards -->
+            <div class="row g-3 mb-4">
+                <div class="col-6">
+                    <div class="stat-card p-3 rounded-4 border border-primary-subtle text-center" style="background: rgba(99,102,241,0.06);">
+                        <div class="text-secondary-custom small mb-1">Best Model</div>
+                        <div class="text-light fw-bold text-capitalize" style="font-size:0.85rem;">{{ best_model_name.replace('_',' ') if best_model_name else '—' }}</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="stat-card p-3 rounded-4 border border-success-subtle text-center" style="background: rgba(34,197,94,0.06);">
+                        <div class="text-secondary-custom small mb-1">Accuracy</div>
+                        <div class="text-success fw-bold fs-5">{{ '%.1f' | format((best_model_accuracy or 0) * 100) }}%</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Model Leaderboard -->
+            {% if model_scores %}
+            <div class="datasets-card rounded-4 border border-secondary-subtle p-4 mb-4">
+                <h6 class="text-light fw-semibold mb-3">
+                    <i class="bi bi-trophy text-warning me-2"></i>Model Leaderboard
+                </h6>
+                {% set sorted_scores = model_scores | dictsort(by='value', reverse=true) %}
+                {% for name, score in sorted_scores %}
+                <div class="mb-2">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="text-secondary-custom small text-capitalize">
+                            {% if loop.index == 1 %}<i class="bi bi-trophy-fill text-warning me-1" style="font-size:0.7rem;"></i>{% endif %}
+                            {{ name.replace('_', ' ') | title }}
+                        </span>
+                        <span class="text-light fw-semibold small">{{ '%.1f' | format(score * 100) }}%</span>
+                    </div>
+                    <div class="progress rounded-pill" style="height:5px;">
+                        <div class="progress-bar {% if loop.index == 1 %}bg-gradient-primary{% else %}bg-secondary{% endif %}"
+                             role="progressbar" style="width:{{ (score * 100) | round(1) }}%;"></div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Feature Input Form -->
+            <div class="datasets-card rounded-4 border border-secondary-subtle p-4">
+                <h5 class="text-light fw-bold mb-1">
+                    <i class="bi bi-sliders2 text-gradient-primary me-2"></i>Enter Feature Values
+                </h5>
+                <p class="text-secondary-custom small mb-4">Fill in the values below to generate an instant AI prediction.</p>
+
+                <form method="POST" id="predictForm">
+                    {% for feature in feature_columns %}
+                    <div class="mb-3">
+                        <label class="form-label text-light small fw-semibold mb-1" for="input_{{ loop.index }}">
+                            {{ feature.replace('_', ' ') }}
+                            {% if '_' in feature and not feature[0].isdigit() %}
+                            <span class="badge bg-info-subtle text-info rounded-pill ms-1 px-2" style="font-size:0.6rem;">encoded</span>
+                            {% endif %}
+                        </label>
+
+                        {% set fname = feature | lower %}
+                        {% if 'pclass' in fname %}
+                        <select class="form-select bg-dark border-secondary-subtle text-light rounded-3 feature-input" name="{{ feature }}" id="input_{{ loop.index }}" required>
+                            <option value="">Select class…</option>
+                            <option value="1" {% if feature_values.get(feature) == 1.0 %}selected{% endif %}>1st Class (Upper)</option>
+                            <option value="2" {% if feature_values.get(feature) == 2.0 %}selected{% endif %}>2nd Class (Middle)</option>
+                            <option value="3" {% if feature_values.get(feature) == 3.0 %}selected{% endif %}>3rd Class (Lower)</option>
+                        </select>
+                        {% elif 'survived' in fname %}
+                        <select class="form-select bg-dark border-secondary-subtle text-light rounded-3 feature-input" name="{{ feature }}" id="input_{{ loop.index }}" required>
+                            <option value="">Select…</option>
+                            <option value="0" {% if feature_values.get(feature) == 0.0 %}selected{% endif %}>0 — Did Not Survive</option>
+                            <option value="1" {% if feature_values.get(feature) == 1.0 %}selected{% endif %}>1 — Survived</option>
+                        </select>
+                        {% elif 'embarked' in fname %}
+                        {% set port = feature.split('_')[-1] %}
+                        <select class="form-select bg-dark border-secondary-subtle text-light rounded-3 feature-input" name="{{ feature }}" id="input_{{ loop.index }}" required>
+                            <option value="0" {% if feature_values.get(feature) == 0.0 %}selected{% endif %}>No</option>
+                            <option value="1" {% if feature_values.get(feature) == 1.0 %}selected{% endif %}>Yes — Boarded at Port {{ port }}</option>
+                        </select>
+                        {% elif 'age' in fname %}
+                        <div class="d-flex align-items-center gap-3">
+                            <input type="range" class="form-range flex-grow-1 accent-primary range-sync" min="1" max="90" step="1"
+                                   value="{{ feature_values.get(feature, 29) | int }}" data-target="input_{{ loop.index }}">
+                            <input type="number" class="form-control bg-dark border-secondary-subtle text-light rounded-3 feature-input text-center"
+                                   style="width:70px;" name="{{ feature }}" id="input_{{ loop.index }}"
+                                   min="1" max="90" step="1" value="{{ feature_values.get(feature, 29) | int }}" required>
+                        </div>
+                        {% elif 'fare' in fname %}
+                        <div class="d-flex align-items-center gap-3">
+                            <input type="range" class="form-range flex-grow-1 accent-primary range-sync" min="0" max="500" step="1"
+                                   value="{{ feature_values.get(feature, 32) | int }}" data-target="input_{{ loop.index }}">
+                            <input type="number" class="form-control bg-dark border-secondary-subtle text-light rounded-3 feature-input text-center"
+                                   style="width:80px;" name="{{ feature }}" id="input_{{ loop.index }}"
+                                   min="0" max="500" step="0.5" value="{{ feature_values.get(feature, 32) | int }}" required>
+                        </div>
+                        {% elif 'passengerid' in fname %}
+                        <input type="number" class="form-control bg-dark border-secondary-subtle text-light rounded-3 feature-input"
+                               name="{{ feature }}" id="input_{{ loop.index }}"
+                               min="1" step="1" value="{{ feature_values.get(feature, 1) | int }}" required>
+                        {% else %}
+                        <input type="number" step="any" class="form-control bg-dark border-secondary-subtle text-light rounded-3 feature-input"
+                               name="{{ feature }}" id="input_{{ loop.index }}"
+                               value="{{ feature_values.get(feature, '') }}" required>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+
+                    <button type="submit" class="btn btn-gradient-primary w-100 rounded-pill py-2 mt-2" id="predictBtn">
+                        <span id="predictBtnContent">
+                            <i class="bi bi-cpu me-2"></i>Run Prediction
+                        </span>
+                        <span class="spinner-border spinner-border-sm d-none" id="predictSpinner"></span>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- ── RIGHT: Result Panel ─────────────────────────────────────────── -->
+        <div class="col-xl-7">
+
+            {% if prediction is not none %}
+            <!-- ── Result Header ── -->
+            <div class="datasets-card rounded-4 border border-success-subtle p-5 mb-4 text-center result-card" style="background: linear-gradient(135deg, rgba(34,197,94,0.08), rgba(99,102,241,0.08));">
+                <div class="mb-3">
+                    <div class="d-inline-flex align-items-center justify-content-center rounded-circle mb-3"
+                         style="width:72px;height:72px;background:rgba(34,197,94,0.15);border:2px solid rgba(34,197,94,0.3);">
+                        <i class="bi bi-check-circle-fill text-success fs-2"></i>
+                    </div>
+                    <div class="text-secondary-custom small fw-semibold text-uppercase mb-1" style="letter-spacing:.08em;">Predicted {{ target_column or 'Result' }}</div>
+                    <div class="text-light fw-bold" style="font-size:2.5rem;line-height:1.1;">{{ prediction }}</div>
+                </div>
+
+                {% if confidence is not none %}
+                <div class="mb-3">
+                    <div class="text-secondary-custom small mb-2">Model Confidence</div>
+                    <div class="d-flex align-items-center justify-content-center gap-3">
+                        <!-- Circular gauge using SVG -->
+                        <div class="position-relative" style="width:90px;height:90px;">
+                            <svg viewBox="0 0 36 36" width="90" height="90">
+                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                      fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="3.5"/>
+                                <path id="confArc" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                      fill="none" stroke="url(#confGrad)" stroke-width="3.5"
+                                      stroke-dasharray="{{ (confidence * 100) | round(1) }}, 100"/>
+                                <defs>
+                                    <linearGradient id="confGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                        <stop offset="0%" style="stop-color:#6366f1"/>
+                                        <stop offset="100%" style="stop-color:#22c55e"/>
+                                    </linearGradient>
+                                </defs>
+                            </svg>
+                            <div class="position-absolute top-50 start-50 translate-middle text-center">
+                                <div class="text-light fw-bold" style="font-size:0.95rem;">{{ '%.0f' | format(confidence * 100) }}%</div>
+                            </div>
+                        </div>
+                        <div class="text-start">
+                            <div class="text-light fw-semibold">{{ '%.1f' | format(confidence * 100) }}% confident</div>
+                            <div class="text-secondary-custom small">using {{ best_model_name.replace('_',' ') | title if best_model_name else 'best model' }}</div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- ── Class Probabilities ── -->
+            {% if all_probabilities %}
+            <div class="datasets-card rounded-4 border border-secondary-subtle p-4 mb-4">
+                <h6 class="text-light fw-semibold mb-3">
+                    <i class="bi bi-bar-chart-fill text-gradient-primary me-2"></i>Class Probability Breakdown
+                </h6>
+                {% for cls, pct in all_probabilities | dictsort(by='value', reverse=true) %}
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="text-light fw-semibold small">{{ cls }}</span>
+                        <span class="badge {% if cls | string == prediction | string %}bg-success-subtle text-success border border-success-subtle{% else %}bg-secondary-subtle text-secondary{% endif %} rounded-pill px-3">
+                            {{ pct }}%
+                        </span>
+                    </div>
+                    <div class="progress rounded-pill" style="height:10px;">
+                        <div class="progress-bar {% if cls | string == prediction | string %}bg-gradient-primary{% else %}bg-secondary{% endif %} rounded-pill"
+                             role="progressbar" style="width:{{ pct }}%; transition: width 1s ease;">
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- ── Input Summary ── -->
+            <div class="datasets-card rounded-4 border border-secondary-subtle p-4">
+                <h6 class="text-light fw-semibold mb-3">
+                    <i class="bi bi-input-cursor-text text-gradient-primary me-2"></i>Input Summary
+                </h6>
+                <div class="row g-2">
+                    {% for feat in feature_columns %}
+                    <div class="col-6 col-md-4">
+                        <div class="rounded-3 border border-secondary-subtle p-2 text-center" style="background:rgba(255,255,255,0.02);">
+                            <div class="text-secondary-custom" style="font-size:0.65rem;">{{ feat.replace('_',' ') }}</div>
+                            <div class="text-light fw-semibold small">{{ feature_values.get(feat, '—') }}</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            {% else %}
+            <!-- ── Empty State ── -->
+            <div class="datasets-card rounded-4 border border-secondary-subtle p-5 h-100 d-flex flex-column align-items-center justify-content-center text-center" style="min-height:420px;">
+                <div class="d-inline-flex align-items-center justify-content-center rounded-circle mb-4"
+                     style="width:96px;height:96px;background:linear-gradient(135deg,rgba(99,102,241,0.15),rgba(34,197,94,0.1));border:1px solid rgba(99,102,241,0.3);">
+                    <i class="bi bi-cpu-fill text-gradient-primary" style="font-size:2.5rem;"></i>
+                </div>
+                <h4 class="text-light fw-bold mb-2">Ready to Predict</h4>
+                <p class="text-secondary-custom mb-4" style="max-width:340px;">
+                    Fill in the feature values on the left and click <strong class="text-light">Run Prediction</strong> to get an instant AI-powered result with confidence scores.
+                </p>
+                <div class="d-flex flex-wrap gap-2 justify-content-center">
+                    {% for name, score in (model_scores or {}).items() %}
+                    <span class="badge bg-dark border border-secondary-subtle rounded-pill px-3 py-2 small">
+                        {{ name.replace('_',' ') | title }}: {{ '%.1f' | format(score * 100) }}%
+                    </span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // Sync sliders with number inputs
+    document.querySelectorAll('.range-sync').forEach(range => {
+        const targetId = range.dataset.target;
+        const numInput = document.getElementById(targetId);
+        if (!numInput) return;
+        range.addEventListener('input', () => { numInput.value = range.value; });
+        numInput.addEventListener('input', () => { range.value = numInput.value; });
+    });
+
+    // Loading state on form submit
+    const form = document.getElementById('predictForm');
+    const btn  = document.getElementById('predictBtn');
+    const cont = document.getElementById('predictBtnContent');
+    const spin = document.getElementById('predictSpinner');
+    if (form && btn) {
+        form.addEventListener('submit', () => {
+            btn.disabled = true;
+            if (cont) cont.classList.add('d-none');
+            if (spin) spin.classList.remove('d-none');
+        });
+    }
+
+    // Animate progress bars on load
+    document.querySelectorAll('.progress-bar').forEach(bar => {
+        const w = bar.style.width;
+        bar.style.width = '0%';
+        setTimeout(() => { bar.style.transition = 'width 0.8s ease'; bar.style.width = w; }, 100);
+    });
+
+    // Animate confidence arc
+    const arc = document.getElementById('confArc');
+    if (arc) {
+        const final = arc.getAttribute('stroke-dasharray');
+        arc.setAttribute('stroke-dasharray', '0, 100');
+        setTimeout(() => {
+            arc.style.transition = 'stroke-dasharray 1s ease';
+            arc.setAttribute('stroke-dasharray', final);
+        }, 300);
+    }
+});
+</script>
+
+{% endblock %}

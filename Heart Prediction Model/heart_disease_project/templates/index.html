@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heart Disease Prediction</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="dashboard-shell">
+        <div class="hero-card">
+            <div class="hero-content">
+                <p class="eyebrow">AI Medical Assistant</p>
+                <h1>Heart Disease Prediction</h1>
+                <p class="hero-text">Enter the patient details below to receive an instant cardiovascular risk assessment.</p>
+            </div>
+            <div class="hero-actions">
+                <div class="hero-badge">Live Risk Analysis</div>
+                <button type="button" class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode" aria-pressed="false">
+                    <span class="toggle-track">
+                        <span class="toggle-thumb"></span>
+                    </span>
+                    <span class="toggle-label" id="themeLabel">Dark</span>
+                </button>
+            </div>
+        </div>
+
+        <form class="prediction-form" action="/predict" method="post">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="patient_name">Patient Name</label>
+                    <input type="text" id="patient_name" name="patient_name" required placeholder="e.g. John Doe">
+                </div>
+
+                <div class="form-group">
+                    <label for="age">Age</label>
+                    <input type="number" id="age" name="age" min="1" max="120" required placeholder="e.g. 45">
+                </div>
+
+                <div class="form-group">
+                    <label for="sex">Gender</label>
+                    <select id="sex" name="sex" required>
+                        <option value="">Select gender</option>
+                        <option value="1">Male</option>
+                        <option value="0">Female</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="cp">Chest Pain Type</label>
+                    <select id="cp" name="cp" required>
+                        <option value="">Select chest pain type</option>
+                        <option value="0">Typical Angina</option>
+                        <option value="1">Atypical Angina</option>
+                        <option value="2">Non-anginal Pain</option>
+                        <option value="3">Asymptomatic</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="trestbps">Resting Blood Pressure</label>
+                    <input type="number" id="trestbps" name="trestbps" min="80" max="220" required placeholder="e.g. 140">
+                </div>
+
+                <div class="form-group">
+                    <label for="chol">Cholesterol</label>
+                    <input type="number" id="chol" name="chol" min="100" max="600" required placeholder="e.g. 233">
+                </div>
+
+                <div class="form-group">
+                    <label for="fbs">Fasting Blood Sugar</label>
+                    <select id="fbs" name="fbs" required>
+                        <option value="">Select value</option>
+                        <option value="1">Greater than 120 mg/dl</option>
+                        <option value="0">Less than or equal to 120 mg/dl</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="restecg">ECG Result</label>
+                    <select id="restecg" name="restecg" required>
+                        <option value="">Select ECG result</option>
+                        <option value="0">Normal</option>
+                        <option value="1">ST-T Wave Abnormality</option>
+                        <option value="2">Left Ventricular Hypertrophy</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="thalach">Maximum Heart Rate</label>
+                    <input type="number" id="thalach" name="thalach" min="60" max="220" required placeholder="e.g. 150">
+                </div>
+
+                <div class="form-group">
+                    <label for="exang">Exercise Induced Angina</label>
+                    <select id="exang" name="exang" required>
+                        <option value="">Select response</option>
+                        <option value="1">Yes</option>
+                        <option value="0">No</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="oldpeak">ST Depression</label>
+                    <input type="number" id="oldpeak" name="oldpeak" step="0.1" min="0" max="6.2" required placeholder="e.g. 2.3">
+                </div>
+
+                <div class="form-group">
+                    <label for="slope">Slope</label>
+                    <select id="slope" name="slope" required>
+                        <option value="">Select slope</option>
+                        <option value="0">Upsloping</option>
+                        <option value="1">Flat</option>
+                        <option value="2">Downsloping</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="ca">Number of Major Vessels</label>
+                    <input type="number" id="ca" name="ca" min="0" max="4" required placeholder="e.g. 0">
+                </div>
+
+                <div class="form-group">
+                    <label for="thal">Thalassemia</label>
+                    <select id="thal" name="thal" required>
+                        <option value="">Select thalassemia type</option>
+                        <option value="1">Normal</option>
+                        <option value="2">Fixed Defect</option>
+                        <option value="3">Reversible Defect</option>
+                    </select>
+                </div>
+            </div>
+
+            <button type="submit" class="submit-btn">Predict Risk</button>
+        </form>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

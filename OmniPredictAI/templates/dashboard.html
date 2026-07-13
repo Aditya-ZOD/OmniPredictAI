@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4 px-4 px-lg-5">
+
+    <!-- Page Header -->
+    <div class="row align-items-center mb-4">
+        <div class="col">
+            <h1 class="fw-bold text-light mb-1 fs-2">
+                <i class="bi bi-speedometer2 text-gradient-primary me-2"></i>Dashboard
+            </h1>
+            <p class="text-secondary-custom mb-0">Manage your datasets and predictive models.</p>
+        </div>
+        <div class="col-auto">
+            <button class="btn btn-gradient-primary rounded-pill px-4 py-2" data-bs-toggle="modal" data-bs-target="#uploadModal" id="uploadDatasetBtn" data-loading-trigger>
+                <i class="bi bi-cloud-upload me-2"></i>Upload Dataset
+                <span class="loading-spinner spinner-border spinner-border-sm ms-2 d-none" role="status" aria-hidden="true"></span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Summary Stats Row -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="stat-card p-3 rounded-4 border border-secondary-subtle h-100">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="text-secondary-custom small">Total Datasets</span>
+                    <span class="stat-icon bg-primary-subtle rounded-2 p-1"><i class="bi bi-database text-primary"></i></span>
+                </div>
+                <h3 class="text-light fw-bold mb-0">{{ datasets | length }}</h3>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-card p-3 rounded-4 border border-secondary-subtle h-100">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="text-secondary-custom small">Total Rows</span>
+                    <span class="stat-icon bg-success-subtle rounded-2 p-1"><i class="bi bi-table text-success"></i></span>
+                </div>
+                <h3 class="text-light fw-bold mb-0">{{ "{:,}".format(datasets | sum(attribute='num_rows') or 0) }}</h3>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-card p-3 rounded-4 border border-secondary-subtle h-100">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="text-secondary-custom small">Models Active</span>
+                    <span class="stat-icon bg-warning-subtle rounded-2 p-1"><i class="bi bi-cpu text-warning"></i></span>
+                </div>
+                <h3 class="text-light fw-bold mb-0">0</h3>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-card p-3 rounded-4 border border-secondary-subtle h-100">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="text-secondary-custom small">Reports Generated</span>
+                    <span class="stat-icon bg-info-subtle rounded-2 p-1"><i class="bi bi-file-earmark-bar-graph text-info"></i></span>
+                </div>
+                <h3 class="text-light fw-bold mb-0">0</h3>
+            </div>
+        </div>
+    </div>
+
+    {% if latest_summary and latest_summary.visualizations %}
+    <div class="datasets-card rounded-4 border border-secondary-subtle p-4 mb-4">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <h5 class="text-light fw-bold mb-0">
+                <i class="bi bi-bar-chart-line text-gradient-primary me-2"></i>Visualization Dashboard
+            </h5>
+            <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill small">Auto-generated</span>
+        </div>
+        <div class="row g-4">
+            {% for chart_name, chart_path in latest_summary.visualizations.items() %}
+            <div class="col-md-6 col-xl-4">
+                <div class="border border-secondary-subtle rounded-3 p-3 h-100">
+                    <div class="text-light fw-semibold small mb-2">{{ chart_name.replace('_', ' ') | title }}</div>
+                    <img src="/{{ chart_path.replace('\\', '/') }}" class="img-fluid rounded-2 w-100" alt="{{ chart_name }}">
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Datasets Table -->
+    <div class="datasets-card rounded-4 border border-secondary-subtle p-4">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <h5 class="text-light fw-bold mb-0">
+                <i class="bi bi-folder2-open text-gradient-primary me-2"></i>Uploaded Datasets
+            </h5>
+            {% if datasets %}
+                <span class="badge badge-glow bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill small">
+                    {{ datasets | length }} file{{ 's' if datasets | length != 1 }}
+                </span>
+            {% endif %}
+        </div>
+
+        {% if datasets %}
+        <div class="table-responsive">
+            <table class="table table-dark-custom mb-0" id="datasetsTable">
+                <thead>
+                    <tr>
+                        <th>File Name</th>
+                        <th>Rows</th>
+                        <th>Columns</th>
+                        <th>Size</th>
+                        <th>Uploaded</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ds in datasets %}
+                    <tr class="dataset-row" id="dataset-row-{{ ds.id }}">
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="file-icon bg-success-subtle text-success rounded-2 p-1">
+                                    <i class="bi bi-filetype-csv fs-5"></i>
+                                </span>
+                                <div>
+                                    <div class="text-light fw-semibold small">{{ ds.original_name }}</div>
+                                    <div class="d-flex align-items-center gap-2 mt-1">
+                                        <div class="text-secondary small" style="font-size: 0.75rem;">ID #{{ ds.id }}</div>
+                                        {% if ds.is_configured %}
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2 rounded-pill" style="font-size:0.65rem;">
+                                            <i class="bi bi-check-circle-fill me-1"></i>Target: {{ ds.target_column }}
+                                        </span>
+                                        {% else %}
+                                        <span class="badge bg-warning-subtle text-warning border border-warning-subtle px-2 rounded-pill" style="font-size:0.65rem;">
+                                            <i class="bi bi-exclamation-circle me-1"></i>Not configured
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td><span class="text-light">{{ "{:,}".format(ds.num_rows or 0) }}</span></td>
+                        <td><span class="text-light">{{ ds.num_cols or '—' }}</span></td>
+                        <td><span class="text-secondary-custom">{{ ds.size_display }}</span></td>
+                        <td><span class="text-secondary-custom small">{{ ds.uploaded_at[:10] }}</span></td>
+                        <td class="text-end">
+                            <a href="{{ url_for('dataset_preview', dataset_id=ds.id) }}"
+                               class="btn btn-sm btn-outline-light-custom rounded-pill px-3 me-1"
+                               title="Preview">
+                                <i class="bi bi-eye me-1"></i>Preview
+                            </a>
+                            <a href="{{ url_for('configure_target', dataset_id=ds.id) }}"
+                               class="btn btn-sm rounded-pill px-3 me-1 {% if ds.is_configured %}btn-success-soft{% else %}btn-warning-soft{% endif %}"
+                               title="Configure Target">
+                                <i class="bi bi-crosshair me-1"></i>Configure
+                            </a>
+                            <a href="{{ url_for('predict_dataset', dataset_id=ds.id) }}"
+                               class="btn btn-sm btn-outline-info rounded-pill px-3 me-1"
+                               title="Predict">
+                                <i class="bi bi-lightning-charge me-1"></i>Predict
+                            </a>
+                            <form action="{{ url_for('delete_dataset', dataset_id=ds.id) }}" method="POST"
+                                  class="d-inline" onsubmit="return confirm('Delete this dataset?')">
+                                <button type="submit" class="btn btn-sm btn-danger-soft rounded-pill px-3" title="Delete">
+                                    <i class="bi bi-trash3"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <!-- Empty State -->
+        <div class="empty-state text-center py-5">
+            <div class="empty-icon mb-3">
+                <i class="bi bi-cloud-upload-fill display-2 text-gradient-primary"></i>
+            </div>
+            <h5 class="text-light fw-semibold mb-2">No datasets yet</h5>
+            <p class="text-secondary-custom mb-4 max-width-600 mx-auto">
+                Upload your first CSV file to start exploring data, training models, and generating reports.
+            </p>
+            <button class="btn btn-gradient-primary rounded-pill px-5 py-2"
+                    data-bs-toggle="modal" data-bs-target="#uploadModal" id="uploadFirstBtn">
+                <i class="bi bi-plus-circle me-2"></i>Upload First Dataset
+            </button>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ═══ Upload Modal ═══════════════════════════════════════════════════════ -->
+<div class="modal fade" id="uploadModal" tabindex="-1" aria-labelledby="uploadModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content bg-dark-card border-secondary-subtle rounded-4 shadow-xl">
+            <div class="modal-header border-secondary-subtle">
+                <h5 class="modal-title fw-bold text-light" id="uploadModalLabel">
+                    <i class="bi bi-cloud-upload text-gradient-primary me-2"></i>Upload CSV Dataset
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form action="{{ url_for('upload') }}" method="POST" enctype="multipart/form-data" id="uploadForm">
+                    <!-- Drop Zone -->
+                    <div class="drop-zone rounded-4 p-5 text-center border border-dashed border-secondary-subtle mb-3"
+                         id="dropZone">
+                        <input type="file" name="file" id="fileInput" class="d-none" accept=".csv">
+                        <div class="drop-zone-content" id="dropZoneContent">
+                            <i class="bi bi-file-earmark-spreadsheet display-3 text-gradient-primary mb-3 d-block"></i>
+                            <h5 class="text-light fw-semibold mb-2">Drag & drop your CSV file here</h5>
+                            <p class="text-secondary-custom small mb-3">or click to browse from your computer</p>
+                            <button type="button" class="btn btn-outline-light-custom rounded-pill px-4 py-2"
+                                    id="browseBtn">
+                                <i class="bi bi-folder2-open me-2"></i>Browse Files
+                            </button>
+                        </div>
+                        <!-- File selected preview -->
+                        <div class="file-selected-preview d-none" id="fileSelectedPreview">
+                            <i class="bi bi-filetype-csv display-4 text-success mb-2 d-block"></i>
+                            <div class="text-light fw-semibold" id="selectedFileName"></div>
+                            <div class="text-secondary-custom small mt-1" id="selectedFileSize"></div>
+                            <button type="button" class="btn btn-sm btn-outline-light-custom rounded-pill mt-3 px-3"
+                                    id="changeFileBtn">
+                                <i class="bi bi-arrow-repeat me-1"></i>Change File
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Upload Progress Bar (hidden until upload starts) -->
+                    <div class="d-none" id="uploadProgressWrapper">
+                        <div class="d-flex justify-content-between small text-secondary-custom mb-1">
+                            <span>Uploading...</span>
+                            <span id="uploadPct">0%</span>
+                        </div>
+                        <div class="progress rounded-pill" style="height: 6px;">
+                            <div class="progress-bar bg-gradient-progress rounded-pill" role="progressbar"
+                                 id="uploadProgressBar" style="width:0%"></div>
+                        </div>
+                    </div>
+
+                    <div class="alert bg-dark-secondary border border-primary-subtle text-secondary-custom small rounded-3 mt-3 mb-0 p-3">
+                        <i class="bi bi-info-circle text-primary me-2"></i>
+                        Supported format: <strong class="text-light">CSV</strong> · Max size: <strong class="text-light">50 MB</strong>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-secondary-subtle">
+                <button type="button" class="btn btn-outline-light-custom rounded-pill px-4"
+                        data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" form="uploadForm" class="btn btn-gradient-primary rounded-pill px-5"
+                        id="uploadSubmitBtn" disabled>
+                    <span id="uploadBtnText"><i class="bi bi-cloud-upload me-2"></i>Upload</span>
+                    <span class="spinner-border spinner-border-sm d-none" id="uploadSpinner" role="status"></span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

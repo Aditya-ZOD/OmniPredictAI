@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center py-lg-4">
+        <div class="col-md-5">
+            <div class="card bg-dark-card border-secondary-subtle p-4 rounded-4 shadow-lg">
+                <div class="text-center mb-4">
+                    <h2 class="fw-bold text-light mb-1">Create Account</h2>
+                    <p class="text-secondary-custom">Start building predictive intelligence models</p>
+                </div>
+                
+                <form action="{{ url_for('register') }}" method="POST">
+                    <div class="mb-3">
+                        <label for="fullName" class="form-label text-light">Full Name</label>
+                        <input type="text" class="form-control bg-dark border-secondary-subtle text-light rounded-3 px-3 py-2" id="fullName" name="fullName" placeholder="John Doe" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="email" class="form-label text-light">Email Address</label>
+                        <input type="email" class="form-control bg-dark border-secondary-subtle text-light rounded-3 px-3 py-2" id="email" name="email" placeholder="name@example.com" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label text-light">Password</label>
+                        <input type="password" class="form-control bg-dark border-secondary-subtle text-light rounded-3 px-3 py-2" id="password" name="password" placeholder="Min. 8 characters" required>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input bg-dark border-secondary-subtle" id="terms" required>
+                        <label class="form-check-label text-secondary-custom small" for="terms">I agree to the Terms of Service and Privacy Policy</label>
+                    </div>
+                    <button type="submit" class="btn btn-gradient-primary w-100 py-2.5 rounded-pill mb-3">Register</button>
+                </form>
+                
+                <div class="text-center mt-3">
+                    <span class="text-secondary-custom small">Already have an account? <a href="{{ url_for('login') }}" class="text-gradient-primary text-decoration-none">Log In</a></span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

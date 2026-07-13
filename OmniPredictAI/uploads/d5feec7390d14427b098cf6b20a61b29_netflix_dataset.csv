@@ -1,0 +1,101 @@
+show_id,title,type,release_year,genre,country,rating,duration_min,views_millions
+s0001,Netflix Title 1,Movie,2010,Documentary,India,6.1,77,184.4
+s0002,Netflix Title 2,Movie,2023,Drama,USA,5.4,89,126.8
+s0003,Netflix Title 3,Movie,2016,Documentary,Spain,8.2,113,55.9
+s0004,Netflix Title 4,TV Show,2010,Romance,Japan,5.7,114,85.7
+s0005,Netflix Title 5,Movie,2016,Romance,India,5.5,108,25.1
+s0006,Netflix Title 6,TV Show,2018,Romance,USA,8.3,128,32.1
+s0007,Netflix Title 7,TV Show,2012,Sci-Fi,India,8.7,139,221.5
+s0008,Netflix Title 8,TV Show,2016,Documentary,USA,5.2,89,193.5
+s0009,Netflix Title 9,Movie,2017,Romance,USA,6.7,118,159.3
+s0010,Netflix Title 10,TV Show,2015,Action,India,5.9,94,175.8
+s0011,Netflix Title 11,Movie,2015,Sci-Fi,Spain,6.1,119,95.5
+s0012,Netflix Title 12,Movie,2020,Romance,Japan,8.5,89,205.6
+s0013,Netflix Title 13,TV Show,2022,Action,USA,5.9,180,142.2
+s0014,Netflix Title 14,TV Show,2016,Documentary,Canada,6.8,177,161.1
+s0015,Netflix Title 15,Movie,2018,Comedy,UK,8.4,128,66.4
+s0016,Netflix Title 16,TV Show,2022,Action,UK,9.5,77,127.9
+s0017,Netflix Title 17,Movie,2011,Romance,USA,5.7,80,198.2
+s0018,Netflix Title 18,TV Show,2012,Thriller,Canada,7.7,119,132.7
+s0019,Netflix Title 19,Movie,2013,Documentary,South Korea,8.4,158,160.6
+s0020,Netflix Title 20,Movie,2019,Thriller,UK,7.0,152,219.1
+s0021,Netflix Title 21,TV Show,2015,Sci-Fi,USA,8.9,98,210.6
+s0022,Netflix Title 22,Movie,2014,Action,Japan,5.7,159,230.7
+s0023,Netflix Title 23,Movie,2020,Thriller,USA,5.5,106,219.8
+s0024,Netflix Title 24,TV Show,2017,Drama,UK,9.0,70,22.3
+s0025,Netflix Title 25,TV Show,2012,Romance,South Korea,8.4,76,165.3
+s0026,Netflix Title 26,Movie,2018,Sci-Fi,Japan,7.7,87,232.3
+s0027,Netflix Title 27,Movie,2019,Thriller,Spain,7.9,116,225.0
+s0028,Netflix Title 28,TV Show,2013,Comedy,UK,5.3,62,147.5
+s0029,Netflix Title 29,Movie,2017,Drama,USA,8.2,67,58.0
+s0030,Netflix Title 30,Movie,2020,Drama,South Korea,6.1,145,121.9
+s0031,Netflix Title 31,Movie,2025,Comedy,Japan,7.1,112,48.4
+s0032,Netflix Title 32,Movie,2023,Action,Canada,6.8,170,182.5
+s0033,Netflix Title 33,Movie,2011,Thriller,Spain,6.5,170,28.2
+s0034,Netflix Title 34,Movie,2016,Sci-Fi,Canada,5.6,83,70.4
+s0035,Netflix Title 35,Movie,2012,Thriller,Japan,8.9,130,25.4
+s0036,Netflix Title 36,Movie,2012,Romance,Japan,6.1,112,121.9
+s0037,Netflix Title 37,Movie,2022,Drama,UK,6.7,109,67.0
+s0038,Netflix Title 38,TV Show,2019,Thriller,Spain,9.3,160,139.4
+s0039,Netflix Title 39,TV Show,2014,Comedy,India,6.0,67,145.2
+s0040,Netflix Title 40,Movie,2020,Drama,USA,7.6,124,229.9
+s0041,Netflix Title 41,Movie,2011,Sci-Fi,USA,8.8,68,149.2
+s0042,Netflix Title 42,Movie,2022,Drama,South Korea,6.1,136,10.9
+s0043,Netflix Title 43,Movie,2023,Documentary,South Korea,7.5,100,233.7
+s0044,Netflix Title 44,Movie,2020,Comedy,India,6.8,145,161.7
+s0045,Netflix Title 45,TV Show,2020,Romance,USA,5.0,139,249.6
+s0046,Netflix Title 46,Movie,2012,Sci-Fi,UK,7.3,76,233.4
+s0047,Netflix Title 47,Movie,2017,Action,India,5.7,166,136.3
+s0048,Netflix Title 48,TV Show,2010,Documentary,Japan,7.5,179,166.2
+s0049,Netflix Title 49,Movie,2018,Drama,USA,8.3,79,68.8
+s0050,Netflix Title 50,Movie,2020,Comedy,Spain,7.9,93,126.8
+s0051,Netflix Title 51,TV Show,2011,Drama,Spain,6.9,95,12.0
+s0052,Netflix Title 52,TV Show,2014,Documentary,India,5.7,116,138.4
+s0053,Netflix Title 53,TV Show,2010,Drama,USA,9.3,148,226.1
+s0054,Netflix Title 54,Movie,2021,Sci-Fi,South Korea,5.7,76,11.4
+s0055,Netflix Title 55,TV Show,2011,Action,UK,8.1,145,26.6
+s0056,Netflix Title 56,TV Show,2014,Comedy,Japan,5.7,162,202.9
+s0057,Netflix Title 57,TV Show,2010,Comedy,Spain,9.2,160,232.8
+s0058,Netflix Title 58,Movie,2018,Comedy,Japan,8.2,108,218.2
+s0059,Netflix Title 59,TV Show,2017,Comedy,Japan,9.1,104,77.0
+s0060,Netflix Title 60,Movie,2017,Drama,Spain,5.9,102,70.4
+s0061,Netflix Title 61,Movie,2018,Action,Spain,7.3,146,245.3
+s0062,Netflix Title 62,TV Show,2010,Drama,India,5.8,93,10.5
+s0063,Netflix Title 63,TV Show,2021,Documentary,Japan,6.4,137,246.1
+s0064,Netflix Title 64,Movie,2022,Sci-Fi,UK,6.1,150,109.6
+s0065,Netflix Title 65,Movie,2021,Thriller,USA,9.3,177,83.2
+s0066,Netflix Title 66,TV Show,2013,Documentary,India,7.3,145,102.7
+s0067,Netflix Title 67,TV Show,2019,Sci-Fi,UK,5.9,145,235.2
+s0068,Netflix Title 68,Movie,2019,Thriller,South Korea,8.8,98,72.4
+s0069,Netflix Title 69,TV Show,2020,Thriller,Canada,7.0,87,128.3
+s0070,Netflix Title 70,Movie,2012,Action,South Korea,8.0,139,84.5
+s0071,Netflix Title 71,Movie,2019,Comedy,Japan,5.9,63,12.5
+s0072,Netflix Title 72,TV Show,2012,Thriller,Canada,9.0,133,49.4
+s0073,Netflix Title 73,TV Show,2025,Thriller,UK,5.7,148,2.4
+s0074,Netflix Title 74,Movie,2023,Comedy,UK,8.6,149,130.0
+s0075,Netflix Title 75,Movie,2017,Romance,USA,7.1,162,116.7
+s0076,Netflix Title 76,TV Show,2024,Sci-Fi,Japan,8.2,124,107.3
+s0077,Netflix Title 77,TV Show,2015,Documentary,Japan,7.1,93,188.2
+s0078,Netflix Title 78,TV Show,2025,Documentary,UK,6.2,69,178.7
+s0079,Netflix Title 79,Movie,2018,Action,India,9.0,70,35.5
+s0080,Netflix Title 80,Movie,2022,Documentary,UK,8.2,68,104.3
+s0081,Netflix Title 81,TV Show,2024,Thriller,USA,5.9,113,98.0
+s0082,Netflix Title 82,Movie,2022,Thriller,USA,9.2,98,188.6
+s0083,Netflix Title 83,TV Show,2017,Thriller,UK,6.2,122,8.2
+s0084,Netflix Title 84,TV Show,2022,Documentary,UK,8.8,177,32.8
+s0085,Netflix Title 85,Movie,2022,Sci-Fi,South Korea,8.0,70,161.0
+s0086,Netflix Title 86,Movie,2024,Comedy,USA,6.2,101,53.7
+s0087,Netflix Title 87,TV Show,2020,Romance,Canada,6.3,166,106.0
+s0088,Netflix Title 88,Movie,2025,Drama,Spain,7.4,104,56.8
+s0089,Netflix Title 89,Movie,2011,Romance,USA,9.3,85,210.0
+s0090,Netflix Title 90,Movie,2017,Comedy,Canada,8.0,132,237.0
+s0091,Netflix Title 91,TV Show,2018,Romance,India,5.8,137,241.0
+s0092,Netflix Title 92,Movie,2015,Action,USA,7.6,178,78.7
+s0093,Netflix Title 93,TV Show,2022,Documentary,UK,5.3,148,207.8
+s0094,Netflix Title 94,Movie,2013,Documentary,Japan,6.4,147,150.5
+s0095,Netflix Title 95,Movie,2011,Action,South Korea,6.9,107,18.2
+s0096,Netflix Title 96,TV Show,2010,Romance,Canada,8.7,73,108.9
+s0097,Netflix Title 97,TV Show,2024,Documentary,UK,7.0,153,130.9
+s0098,Netflix Title 98,TV Show,2025,Thriller,Canada,8.7,135,67.8
+s0099,Netflix Title 99,Movie,2012,Action,Canada,6.1,119,142.9
+s0100,Netflix Title 100,TV Show,2020,Drama,Canada,8.8,83,122.4

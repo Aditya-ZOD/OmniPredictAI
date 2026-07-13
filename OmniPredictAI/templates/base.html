@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=device-width, initial-scale=1.0">
+    <title>OmniPredict AI - Advanced Predictions & Analytics</title>
+    
+    <script>
+        (function () {
+            const storedTheme = localStorage.getItem('theme');
+            const preferredTheme = storedTheme || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+            document.documentElement.setAttribute('data-theme', preferredTheme);
+            document.documentElement.style.colorScheme = preferredTheme;
+        })();
+    </script>
+
+    <!-- Google Fonts: Plus Jakarta Sans -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Bootstrap 5 CSS CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    
+    <!-- Bootstrap Icons CDN -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="d-flex flex-column min-vh-100 bg-dark-theme text-light">
+
+    <!-- Premium Navbar -->
+    <nav class="navbar navbar-expand-lg sticky-top navbar-glass py-3">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center" href="{{ url_for('home') }}">
+                <span class="brand-icon-wrapper me-2">
+                    <i class="bi bi-cpu-fill text-gradient-primary"></i>
+                </span>
+                <span class="brand-text">OmniPredict <span class="text-gradient-primary fw-bold">AI</span></span>
+            </a>
+            
+            <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon-custom">
+                    <i class="bi bi-list text-light fs-2"></i>
+                </span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav mx-auto mb-2 mb-lg-0 gap-lg-3">
+                    <li class="nav-item">
+                        <a class="nav-link {% if page_name == 'home' %}active-link{% endif %}" href="{{ url_for('home') }}">
+                            <i class="bi bi-house-door me-1"></i> Home
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if page_name == 'dashboard' %}active-link{% endif %}" href="{{ url_for('dashboard') }}">
+                            <i class="bi bi-speedometer2 me-1"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if page_name == 'reports' %}active-link{% endif %}" href="{{ url_for('reports') }}">
+                            <i class="bi bi-file-earmark-bar-graph me-1"></i> Reports
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if page_name == 'admin' %}active-link{% endif %}" href="{{ url_for('admin_dashboard') }}">
+                            <i class="bi bi-shield-lock me-1"></i> Admin
+                        </a>
+                    </li>
+                </ul>
+                
+                <div class="d-flex align-items-center gap-3">
+                    <button id="themeToggle" class="btn btn-outline-light-custom px-3 rounded-pill" type="button" aria-label="Toggle color theme">
+                        <i class="bi bi-sun-fill theme-icon"></i>
+                    </button>
+                    {% if g.user %}
+                        <span class="text-secondary-custom small d-none d-md-inline-block">
+                            <i class="bi bi-person-circle text-gradient-primary me-1"></i> Hello, <strong>{{ g.user['full_name'] }}</strong>
+                        </span>
+                        <a href="{{ url_for('logout') }}" class="btn btn-outline-light-custom px-4 rounded-pill">
+                            <i class="bi bi-box-arrow-right me-1"></i> Logout
+                        </a>
+                    {% else %}
+                        <a href="{{ url_for('login') }}" class="btn btn-outline-light-custom px-4 rounded-pill {% if page_name == 'login' %}active-btn-outline{% endif %}">
+                            <i class="bi bi-box-arrow-in-right me-1"></i> Login
+                        </a>
+                        <a href="{{ url_for('register') }}" class="btn btn-gradient-primary px-4 rounded-pill {% if page_name == 'register' %}active-btn-gradient{% endif %}">
+                            Register <i class="bi bi-arrow-right-short ms-1"></i>
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Flash Messages Container -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="container mt-4">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show bg-dark-secondary border-{{ category }} text-light rounded-3 shadow-lg" role="alert" style="border-width: 1px; border-style: solid;">
+                        <div class="d-flex align-items-center">
+                            {% if category == 'success' %}
+                                <i class="bi bi-check-circle-fill text-success fs-5 me-3"></i>
+                            {% elif category == 'danger' %}
+                                <i class="bi bi-exclamation-triangle-fill text-danger fs-5 me-3"></i>
+                            {% elif category == 'warning' %}
+                                <i class="bi bi-exclamation-circle-fill text-warning fs-5 me-3"></i>
+                            {% else %}
+                                <i class="bi bi-info-circle-fill text-info fs-5 me-3"></i>
+                            {% endif %}
+                            <div class="small fw-semibold">{{ message }}</div>
+                        </div>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <!-- Main Content Wrapper -->
+    <main class="flex-grow-1">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Premium Footer -->
+    <footer class="footer-glass py-5 mt-auto border-top border-secondary-subtle">
+        <div class="container">
+            <div class="row g-4 justify-content-between">
+                <div class="col-lg-4">
+                    <a class="navbar-brand d-flex align-items-center mb-3" href="{{ url_for('home') }}">
+                        <span class="brand-icon-wrapper me-2">
+                            <i class="bi bi-cpu-fill text-gradient-primary"></i>
+                        </span>
+                        <span class="brand-text text-light">OmniPredict <span class="text-gradient-primary fw-bold">AI</span></span>
+                    </a>
+                    <p class="text-secondary-custom mb-4">Empowering business with state-of-the-art predictive intelligence and automated machine learning operations.</p>
+                    <div class="social-links d-flex gap-3">
+                        <a href="#" class="social-icon"><i class="bi bi-twitter-x"></i></a>
+                        <a href="#" class="social-icon"><i class="bi bi-github"></i></a>
+                        <a href="#" class="social-icon"><i class="bi bi-linkedin"></i></a>
+                    </div>
+                </div>
+                
+                <div class="col-6 col-md-3 col-lg-2">
+                    <h6 class="text-uppercase fw-bold text-light mb-3">Platform</h6>
+                    <ul class="list-unstyled footer-links">
+                        <li><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+                        <li><a href="{{ url_for('reports') }}">Reports & Exports</a></li>
+                        <li><a href="#">Model Hub</a></li>
+                        <li><a href="#">APIs & Integrations</a></li>
+                    </ul>
+                </div>
+                
+                <div class="col-6 col-md-3 col-lg-2">
+                    <h6 class="text-uppercase fw-bold text-light mb-3">Support</h6>
+                    <ul class="list-unstyled footer-links">
+                        <li><a href="#">Documentation</a></li>
+                        <li><a href="#">Help Center</a></li>
+                        <li><a href="#">API Status</a></li>
+                        <li><a href="#">Contact Us</a></li>
+                    </ul>
+                </div>
+
+                <div class="col-md-6 col-lg-3">
+                    <h6 class="text-uppercase fw-bold text-light mb-3">Stay Updated</h6>
+                    <p class="text-secondary-custom small">Subscribe to receive predictions insight and system updates.</p>
+                    <div class="input-group mb-3 newsletter-group">
+                        <input type="email" class="form-control bg-dark border-secondary-subtle text-light rounded-start-pill px-3" placeholder="Email address" aria-label="Recipient's email">
+                        <button class="btn btn-gradient-primary rounded-end-pill px-3" type="button"><i class="bi bi-send-fill"></i></button>
+                    </div>
+                </div>
+            </div>
+            
+            <hr class="my-4 border-secondary-subtle">
+            
+            <div class="d-flex flex-column flex-sm-row justify-content-between align-items-center gap-2">
+                <span class="text-secondary-custom small">&copy; 2026 OmniPredict AI. All rights reserved.</span>
+                <div class="d-flex gap-4 footer-legal">
+                    <a href="#" class="text-secondary-custom small text-decoration-none">Privacy Policy</a>
+                    <a href="#" class="text-secondary-custom small text-decoration-none">Terms of Service</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Bootstrap 5 Bundle JS CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+    
+    <!-- Custom JS -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

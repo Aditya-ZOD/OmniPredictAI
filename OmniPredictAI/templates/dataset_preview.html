@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4 px-4 px-lg-5">
+
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb breadcrumb-custom">
+            <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}" class="text-secondary-custom text-decoration-none">Dashboard</a></li>
+            <li class="breadcrumb-item active text-light" aria-current="page">{{ record.original_name }}</li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="row align-items-start mb-4 g-3">
+        <div class="col">
+            <div class="d-flex align-items-center gap-3">
+                <div class="file-icon-lg bg-success-subtle text-success rounded-3 d-flex align-items-center justify-content-center"
+                     style="width:52px;height:52px;">
+                    <i class="bi bi-filetype-csv fs-2"></i>
+                </div>
+                <div>
+                    <h1 class="fw-bold text-light fs-3 mb-1">{{ record.original_name }}</h1>
+                    <div class="d-flex flex-wrap gap-3 text-secondary-custom small">
+                        <span><i class="bi bi-calendar3 me-1"></i>{{ record.uploaded_at[:10] }}</span>
+                        <span><i class="bi bi-hdd me-1"></i>{{ size_display }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-auto">
+            <a href="{{ url_for('dashboard') }}" class="btn btn-outline-light-custom rounded-pill px-4">
+                <i class="bi bi-arrow-left me-2"></i>Back
+            </a>
+        </div>
+    </div>
+
+    <!-- ── Summary Cards ──────────────────────────────────────────────── -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="stat-card p-4 rounded-4 border border-secondary-subtle text-center h-100">
+                <div class="stat-icon-lg bg-primary-subtle text-primary rounded-3 d-inline-flex align-items-center justify-content-center mb-2"
+                     style="width:44px;height:44px;">
+                    <i class="bi bi-list-ul fs-4"></i>
+                </div>
+                <h3 class="text-light fw-bold mt-1 mb-0">{{ "{:,}".format(num_rows) }}</h3>
+                <span class="text-secondary-custom small">Total Rows</span>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-card p-4 rounded-4 border border-secondary-subtle text-center h-100">
+                <div class="stat-icon-lg bg-success-subtle text-success rounded-3 d-inline-flex align-items-center justify-content-center mb-2"
+                     style="width:44px;height:44px;">
+                    <i class="bi bi-layout-three-columns fs-4"></i>
+                </div>
+                <h3 class="text-light fw-bold mt-1 mb-0">{{ num_cols }}</h3>
+                <span class="text-secondary-custom small">Columns</span>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-card p-4 rounded-4 border border-secondary-subtle text-center h-100">
+                <div class="stat-icon-lg bg-warning-subtle text-warning rounded-3 d-inline-flex align-items-center justify-content-center mb-2"
+                     style="width:44px;height:44px;">
+                    <i class="bi bi-exclamation-triangle fs-4"></i>
+                </div>
+                {% set total_missing = missing.values() | sum %}
+                <h3 class="text-light fw-bold mt-1 mb-0">{{ "{:,}".format(total_missing) }}</h3>
+                <span class="text-secondary-custom small">Missing Values</span>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-card p-4 rounded-4 border border-secondary-subtle text-center h-100">
+                <div class="stat-icon-lg bg-info-subtle text-info rounded-3 d-inline-flex align-items-center justify-content-center mb-2"
+                     style="width:44px;height:44px;">
+                    <i class="bi bi-tags fs-4"></i>
+                </div>
+                {% set unique_dtypes = dtypes.values() | list | unique | list %}
+                <h3 class="text-light fw-bold mt-1 mb-0">{{ unique_dtypes | length }}</h3>
+                <span class="text-secondary-custom small">Unique Data Types</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+
+        <!-- ── Left: Column Info ─────────────────────────────────────────── -->
+        <div class="col-lg-4">
+            <div class="datasets-card rounded-4 border border-secondary-subtle p-4 h-100">
+                <h5 class="text-light fw-bold mb-3">
+                    <i class="bi bi-columns-gap text-gradient-primary me-2"></i>Column Info
+                </h5>
+                <div class="column-info-list">
+                    {% for col in columns %}
+                    {% set miss_count = missing[col] %}
+                    {% set miss_pct   = missing_pct[col] %}
+                    <div class="column-info-item py-2 border-bottom border-secondary-subtle">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="text-light small fw-semibold text-truncate me-2" style="max-width:160px;" title="{{ col }}">{{ col }}</span>
+                            <span class="dtype-badge rounded-pill px-2 py-1 text-nowrap
+                                {% if 'int' in dtypes[col] %}bg-primary-subtle text-primary
+                                {% elif 'float' in dtypes[col] %}bg-info-subtle text-info
+                                {% elif 'object' in dtypes[col] %}bg-success-subtle text-success
+                                {% elif 'bool' in dtypes[col] %}bg-warning-subtle text-warning
+                                {% elif 'datetime' in dtypes[col] %}bg-purple-subtle text-purple
+                                {% else %}bg-secondary-subtle text-secondary
+                                {% endif %}" style="font-size:0.7rem;">
+                                {{ dtypes[col] }}
+                            </span>
+                        </div>
+                        {% if miss_count > 0 %}
+                        <div class="progress mt-1" style="height:3px;">
+                            <div class="progress-bar bg-warning" style="width:{{ miss_pct }}%;"></div>
+                        </div>
+                        <div class="text-warning" style="font-size:0.7rem;">
+                            {{ miss_count }} missing ({{ miss_pct }}%)
+                        </div>
+                        {% else %}
+                        <div class="text-success" style="font-size:0.7rem;">
+                            <i class="bi bi-check-circle-fill me-1"></i>No missing values
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Right: Data Preview ───────────────────────────────────────── -->
+        <div class="col-lg-8">
+            <div class="datasets-card rounded-4 border border-secondary-subtle p-4">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <h5 class="text-light fw-bold mb-0">
+                        <i class="bi bi-eye text-gradient-primary me-2"></i>Data Preview
+                    </h5>
+                    <span class="text-secondary-custom small">First 10 rows</span>
+                </div>
+
+                {% if preview_rows %}
+                <div class="table-responsive preview-table-wrapper">
+                    <table class="table table-dark-custom table-sm mb-0" id="previewTable">
+                        <thead>
+                            <tr>
+                                <th class="text-secondary" style="width:40px;">#</th>
+                                {% for col in columns %}
+                                <th>{{ col }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for i, row in preview_rows | enumerate %}
+                            <tr>
+                                <td class="text-secondary small">{{ i + 1 }}</td>
+                                {% for col in columns %}
+                                <td class="text-light small">
+                                    {% if row[col] is none or row[col] != row[col] %}
+                                        <span class="badge bg-warning-subtle text-warning px-2 py-1 rounded-2" style="font-size:0.65rem;">NULL</span>
+                                    {% else %}
+                                        {{ row[col] }}
+                                    {% endif %}
+                                </td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4 text-secondary-custom">
+                    <i class="bi bi-inbox fs-1 mb-2 d-block"></i>
+                    No data available to preview.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

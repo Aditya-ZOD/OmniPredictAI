@@ -1,0 +1,322 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4 px-4 px-lg-5">
+
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb breadcrumb-custom">
+            <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}" class="text-secondary-custom text-decoration-none">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('dataset_preview', dataset_id=record.id) }}" class="text-secondary-custom text-decoration-none">{{ record.original_name }}</a></li>
+            <li class="breadcrumb-item active text-light" aria-current="page">Configure Target</li>
+        </ol>
+    </nav>
+
+    <!-- Page Header -->
+    <div class="row align-items-center mb-4 g-3">
+        <div class="col">
+            <h1 class="fw-bold text-light fs-2 mb-1">
+                <i class="bi bi-crosshair text-gradient-primary me-2"></i>Select Target Column
+            </h1>
+            <p class="text-secondary-custom mb-0">
+                Choose the output column to predict for
+                <span class="text-light fw-semibold">{{ record.original_name }}</span>
+            </p>
+        </div>
+        <div class="col-auto">
+            <a href="{{ url_for('dataset_preview', dataset_id=record.id) }}"
+               class="btn btn-outline-light-custom rounded-pill px-4">
+                <i class="bi bi-arrow-left me-2"></i>Back to Preview
+            </a>
+        </div>
+    </div>
+
+    <!-- Already configured banner -->
+    {% if existing %}
+    <div class="alert bg-success-subtle border border-success-subtle text-light rounded-3 mb-4 d-flex align-items-center gap-3 p-3">
+        <i class="bi bi-check-circle-fill text-success fs-5"></i>
+        <div>
+            <strong>Target column configured:</strong>
+            <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-1 rounded-pill ms-2">{{ existing.target_column }}</span>
+            &nbsp;·&nbsp; Problem type: <strong>{{ existing.problem_type }}</strong>
+            &nbsp;·&nbsp; Last set: {{ existing.configured_at[:10] }}
+        </div>
+    </div>
+    {% endif %}
+
+    <form action="{{ url_for('configure_target', dataset_id=record.id) }}" method="POST" id="configureForm">
+
+        <div class="row g-4">
+
+            <!-- ── LEFT COLUMN: Dataset Summary + Column Selector ─────────── -->
+            <div class="col-lg-4">
+
+                <!-- Dataset Summary Card -->
+                <div class="datasets-card rounded-4 border border-secondary-subtle p-4 mb-4">
+                    <h6 class="text-light fw-bold mb-3">
+                        <i class="bi bi-info-circle text-gradient-primary me-2"></i>Dataset Summary
+                    </h6>
+                    <div class="row g-2 text-center mb-3">
+                        <div class="col-6">
+                            <div class="mini-stat-card p-2 rounded-3">
+                                <div class="text-secondary" style="font-size:0.7rem;">ROWS</div>
+                                <div class="text-light fw-bold">{{ "{:,}".format(num_rows) }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mini-stat-card p-2 rounded-3">
+                                <div class="text-secondary" style="font-size:0.7rem;">COLUMNS</div>
+                                <div class="text-light fw-bold">{{ num_cols }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mini-stat-card p-2 rounded-3">
+                                <div class="text-secondary" style="font-size:0.7rem;">SIZE</div>
+                                <div class="text-light fw-bold">{{ size_display }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mini-stat-card p-2 rounded-3">
+                                <div class="text-secondary" style="font-size:0.7rem;">FILE</div>
+                                <div class="text-light fw-bold small text-truncate" title="{{ record.original_name }}">
+                                    {{ record.original_name }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Dtype breakdown -->
+                    <div class="dtype-breakdown">
+                        {% set numeric_cols = [] %}
+                        {% set categorical_cols = [] %}
+                        {% for col in columns %}
+                            {% if col_stats[col].is_numeric %}{% set _ = numeric_cols.append(col) %}{% endif %}
+                            {% if not col_stats[col].is_numeric %}{% set _ = categorical_cols.append(col) %}{% endif %}
+                        {% endfor %}
+                        <div class="d-flex justify-content-between small text-secondary-custom mb-1">
+                            <span><i class="bi bi-123 me-1 text-primary"></i>Numeric columns</span>
+                            <span class="text-light fw-semibold">{{ numeric_cols | length }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between small text-secondary-custom">
+                            <span><i class="bi bi-fonts me-1 text-success"></i>Categorical columns</span>
+                            <span class="text-light fw-semibold">{{ categorical_cols | length }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Problem Type Selector -->
+                <div class="datasets-card rounded-4 border border-secondary-subtle p-4 mb-4">
+                    <h6 class="text-light fw-bold mb-3">
+                        <i class="bi bi-diagram-3 text-gradient-primary me-2"></i>Problem Type
+                    </h6>
+                    <p class="text-secondary-custom small mb-3">
+                        Set manually, or leave as <strong class="text-light">Auto-detect</strong> to let OmniPredict infer from your target column.
+                    </p>
+                    <div class="d-flex flex-column gap-2">
+                        {% set ptype_saved = existing.problem_type if existing else 'auto' %}
+                        <label class="problem-type-option rounded-3 p-3 border border-secondary-subtle d-flex align-items-center gap-3"
+                               id="ptype-auto">
+                            <input type="radio" name="problem_type" value="auto" class="form-check-input mt-0"
+                                   {% if ptype_saved == 'auto' %}checked{% endif %}>
+                            <div>
+                                <div class="text-light fw-semibold small">Auto-detect</div>
+                                <div class="text-secondary" style="font-size:0.75rem;">OmniPredict picks the best task type</div>
+                            </div>
+                        </label>
+                        <label class="problem-type-option rounded-3 p-3 border border-secondary-subtle d-flex align-items-center gap-3"
+                               id="ptype-classification">
+                            <input type="radio" name="problem_type" value="classification" class="form-check-input mt-0"
+                                   {% if ptype_saved == 'classification' %}checked{% endif %}>
+                            <div>
+                                <div class="text-light fw-semibold small">Classification</div>
+                                <div class="text-secondary" style="font-size:0.75rem;">Predicts discrete categories/labels</div>
+                            </div>
+                        </label>
+                        <label class="problem-type-option rounded-3 p-3 border border-secondary-subtle d-flex align-items-center gap-3"
+                               id="ptype-regression">
+                            <input type="radio" name="problem_type" value="regression" class="form-check-input mt-0"
+                                   {% if ptype_saved == 'regression' %}checked{% endif %}>
+                            <div>
+                                <div class="text-light fw-semibold small">Regression</div>
+                                <div class="text-secondary" style="font-size:0.75rem;">Predicts continuous numeric values</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── RIGHT COLUMN: Feature Table ────────────────────────────── -->
+            <div class="col-lg-8">
+                <div class="datasets-card rounded-4 border border-secondary-subtle p-4">
+
+                    <!-- Target selection hint -->
+                    <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                        <h5 class="text-light fw-bold mb-0">
+                            <i class="bi bi-table text-gradient-primary me-2"></i>Feature Overview
+                        </h5>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="legend-dot bg-primary rounded-circle d-inline-block" style="width:10px;height:10px;"></span>
+                            <span class="text-secondary-custom small">Target</span>
+                            <span class="legend-dot bg-success rounded-circle d-inline-block ms-2" style="width:10px;height:10px;"></span>
+                            <span class="text-secondary-custom small">Input feature</span>
+                            <span class="legend-dot bg-secondary rounded-circle d-inline-block ms-2" style="width:10px;height:10px;"></span>
+                            <span class="text-secondary-custom small">Excluded</span>
+                        </div>
+                    </div>
+
+                    <!-- Search -->
+                    <div class="mb-3 position-relative">
+                        <i class="bi bi-search position-absolute text-secondary" style="top:10px;left:12px;"></i>
+                        <input type="text" id="colSearch" class="form-control bg-dark border-secondary-subtle text-light rounded-3 ps-4"
+                               placeholder="Search columns…">
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-dark-custom mb-0" id="featureTable">
+                            <thead>
+                                <tr>
+                                    <th style="width:44px;">Role</th>
+                                    <th>Column Name</th>
+                                    <th>Data Type</th>
+                                    <th>Unique</th>
+                                    <th>Missing</th>
+                                    <th>Stats</th>
+                                    <th style="width:80px;" class="text-center">Exclude</th>
+                                </tr>
+                            </thead>
+                            <tbody id="featureTableBody">
+                                {% for col in columns %}
+                                {% set stats = col_stats[col] %}
+                                {% set is_saved_target = existing and existing.target_column == col %}
+                                {% set is_excluded = col in saved_excluded %}
+                                <tr class="feature-row {% if is_saved_target %}row-target{% elif is_excluded %}row-excluded{% else %}row-feature{% endif %}"
+                                    data-col="{{ col | lower }}">
+                                    <!-- Role indicator -->
+                                    <td>
+                                        <div class="role-indicator" id="role-{{ loop.index }}">
+                                            {% if is_saved_target %}
+                                                <span class="badge bg-primary rounded-pill px-2" title="Target">
+                                                    <i class="bi bi-crosshair"></i>
+                                                </span>
+                                            {% elif is_excluded %}
+                                                <span class="badge bg-secondary rounded-pill px-2" title="Excluded">
+                                                    <i class="bi bi-dash-circle"></i>
+                                                </span>
+                                            {% else %}
+                                                <span class="badge bg-success rounded-pill px-2" title="Input Feature">
+                                                    <i class="bi bi-arrow-right-circle"></i>
+                                                </span>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <!-- Column name + select as target btn -->
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="text-light fw-semibold small">{{ col }}</span>
+                                            <button type="button"
+                                                    class="btn btn-xs btn-set-target rounded-pill px-2 py-0 border border-primary-subtle text-primary"
+                                                    style="font-size:0.65rem;"
+                                                    data-col="{{ col }}"
+                                                    title="Set as target column">
+                                                Set target
+                                            </button>
+                                        </div>
+                                    </td>
+                                    <!-- Data type -->
+                                    <td>
+                                        <span class="dtype-badge rounded-pill px-2 py-1
+                                            {% if 'int' in stats.dtype %}bg-primary-subtle text-primary
+                                            {% elif 'float' in stats.dtype %}bg-info-subtle text-info
+                                            {% elif 'object' in stats.dtype %}bg-success-subtle text-success
+                                            {% elif 'bool' in stats.dtype %}bg-warning-subtle text-warning
+                                            {% else %}bg-secondary-subtle text-secondary
+                                            {% endif %}">{{ stats.dtype }}</span>
+                                    </td>
+                                    <!-- Unique count -->
+                                    <td class="text-secondary small">{{ stats.unique }}</td>
+                                    <!-- Missing -->
+                                    <td>
+                                        {% if stats.missing > 0 %}
+                                            <span class="text-warning small">{{ stats.missing }} ({{ stats.missing_pct }}%)</span>
+                                        {% else %}
+                                            <span class="text-success small"><i class="bi bi-check-circle-fill"></i></span>
+                                        {% endif %}
+                                    </td>
+                                    <!-- Stats summary -->
+                                    <td class="text-secondary" style="font-size:0.75rem;">
+                                        {% if stats.is_numeric %}
+                                            <span class="text-muted">μ={{ stats.mean }}</span>
+                                        {% else %}
+                                            <span class="text-muted">{{ stats.unique }} categories</span>
+                                        {% endif %}
+                                    </td>
+                                    <!-- Exclude checkbox -->
+                                    <td class="text-center">
+                                        <input type="checkbox" name="excluded_columns" value="{{ col }}"
+                                               class="form-check-input exclude-check mt-0"
+                                               id="exc-{{ loop.index }}"
+                                               data-col="{{ col }}"
+                                               {% if is_excluded %}checked{% endif %}>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Hidden target column input (populated by JS) -->
+                    <input type="hidden" name="target_column" id="targetColInput"
+                           value="{{ existing.target_column if existing else '' }}">
+
+                    <!-- Selected target display -->
+                    <div class="mt-4 p-3 rounded-3 border border-secondary-subtle bg-dark-secondary" id="targetSummaryBox">
+                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                            <div>
+                                <span class="text-secondary-custom small">Selected Target Column</span>
+                                <div class="mt-1">
+                                    <span id="targetDisplay" class="fw-bold text-light fs-5">
+                                        {% if existing %}{{ existing.target_column }}{% else %}<span class="text-secondary fst-italic fs-6">None selected</span>{% endif %}
+                                    </span>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-gradient-primary rounded-pill px-5 py-2"
+                                    id="saveConfigBtn" {% if not existing %}disabled{% endif %}>
+                                <i class="bi bi-floppy me-2"></i>Save Configuration
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Input / Output Summary Cards (shown after target selected) -->
+                <div class="row g-3 mt-1" id="featureSummaryCards">
+                    <div class="col-md-6">
+                        <div class="stat-card p-3 rounded-4 border border-success-subtle">
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <i class="bi bi-arrow-right-circle-fill text-success"></i>
+                                <span class="text-light fw-semibold small">Input Features</span>
+                            </div>
+                            <h4 class="text-light fw-bold mb-0" id="inputFeatCount">—</h4>
+                            <p class="text-secondary-custom small mb-0" id="inputFeatList" style="font-size:0.72rem;"></p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="stat-card p-3 rounded-4 border border-primary-subtle">
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <i class="bi bi-crosshair text-primary"></i>
+                                <span class="text-light fw-semibold small">Output (Target)</span>
+                            </div>
+                            <h4 class="text-light fw-bold mb-0" id="outputFeatName">—</h4>
+                            <p class="text-secondary-custom small mb-0" id="outputFeatType" style="font-size:0.72rem;"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Pass column data to JS -->
+<script>
+const COLUMNS  = {{ columns | tojson }};
+const COL_STATS = {{ col_stats | tojson }};
+</script>
+{% endblock %}
