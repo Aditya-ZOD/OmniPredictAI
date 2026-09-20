@@ -14,16 +14,26 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, RandomizedSearchCV
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.linear_model import LogisticRegression, LinearRegression
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
-from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor, GradientBoostingRegressor
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor, GradientBoostingRegressor, GradientBoostingClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, mean_absolute_error, mean_squared_error, r2_score
 
 warnings.filterwarnings('ignore')
+
+
+def read_csv_file(file_path):
+    """Read common CSV exports with detected delimiter and encoding fallback."""
+    for encoding in ('utf-8-sig', 'latin1'):
+        try:
+            return pd.read_csv(file_path, encoding=encoding, sep=None, engine='python')
+        except (UnicodeDecodeError, pd.errors.ParserError):
+            continue
+    raise ValueError('Unable to read the CSV file with supported encodings.')
 
 
 def detect_problem_type(target_series: pd.Series) -> str:
@@ -49,50 +59,359 @@ def detect_problem_type(target_series: pd.Series) -> str:
     return 'classification'
 
 
+def clean_dataset(
+    file_path: str,
+    columns_to_drop: list = None,
+    missing_strategy: str = 'auto',
+    remove_duplicates: bool = True,
+    fix_formatted_numbers: bool = True,
+) -> dict:
+    """
+    Standalone data-cleaning pipeline (no ML, no train-test split).
+
+    Parameters
+    ----------
+    file_path          : Path to the source CSV.
+    columns_to_drop    : List of column names to remove before cleaning.
+    missing_strategy   : One of 'auto', 'mean', 'median', 'mode', 'drop_rows'.
+                         'auto' → numeric → median, categorical → mode,
+                                  column dropped when >50 % missing.
+    remove_duplicates  : Whether to remove exact duplicate rows.
+    fix_formatted_numbers : Whether to strip $, %, commas from string columns
+                            that are actually numeric.
+
+    Returns
+    -------
+    dict with keys:
+        df      – cleaned pandas DataFrame
+        report  – list of step-log dicts compatible with the pipeline log UI
+        original_shape  – (rows, cols) before cleaning
+        cleaned_shape   – (rows, cols) after cleaning
+    """
+    columns_to_drop = columns_to_drop or []
+    report = []
+
+    # ── 1. Load ────────────────────────────────────────────────────────────────
+    df = read_csv_file(file_path)
+    original_shape = df.shape
+    report.append({
+        'title': 'Dataset Loaded',
+        'icon': 'cloud-check',
+        'color': 'primary',
+        'detail': f'{df.shape[0]:,} rows × {df.shape[1]} columns read from CSV.',
+        'status': 'success',
+    })
+
+    # ── 2. Drop user-selected columns ──────────────────────────────────────────
+    valid_drops = [c for c in columns_to_drop if c in df.columns]
+    if valid_drops:
+        df.drop(columns=valid_drops, inplace=True)
+        report.append({
+            'title': 'Columns Dropped',
+            'icon': 'dash-circle',
+            'color': 'secondary',
+            'detail': f'Dropped {len(valid_drops)} column(s): {", ".join(valid_drops)}.',
+            'status': 'info',
+        })
+
+    # ── 3. Remove duplicates ───────────────────────────────────────────────────
+    if remove_duplicates:
+        before = len(df)
+        df.drop_duplicates(inplace=True)
+        dups = before - len(df)
+        report.append({
+            'title': 'Duplicate Rows Removed',
+            'icon': 'files',
+            'color': 'warning' if dups > 0 else 'success',
+            'detail': f'{dups} duplicate row(s) removed.' if dups else 'No duplicate rows found.',
+            'status': 'warning' if dups > 0 else 'success',
+        })
+
+    # ── 4. Auto-fix formatted numeric strings ($, %, commas) ──────────────────
+    if fix_formatted_numbers:
+        cleaned_cols = []
+        for col in df.columns:
+            if pd.api.types.is_string_dtype(df[col]) or df[col].dtype == object:
+                non_null = df[col].dropna()
+                if non_null.empty:
+                    continue
+                sample = non_null.head(100).astype(str).str.strip()
+                cleaned_sample = (
+                    sample.str.replace('$', '', regex=False)
+                          .str.replace('%', '', regex=False)
+                          .str.replace(',', '', regex=False)
+                          .str.strip()
+                )
+                try:
+                    converted = pd.to_numeric(cleaned_sample, errors='coerce')
+                    if converted.notna().sum() / len(sample) > 0.8:
+                        df[col] = pd.to_numeric(
+                            df[col].astype(str)
+                                   .str.replace('$', '', regex=False)
+                                   .str.replace('%', '', regex=False)
+                                   .str.replace(',', '', regex=False)
+                                   .str.strip(),
+                            errors='coerce'
+                        )
+                        cleaned_cols.append(col)
+                except Exception:
+                    pass
+        if cleaned_cols:
+            report.append({
+                'title': 'Formatted Numbers Fixed',
+                'icon': 'magic',
+                'color': 'info',
+                'detail': (
+                    f'Stripped currency/percentage symbols from {len(cleaned_cols)} '
+                    f'column(s): {", ".join(cleaned_cols)}.'
+                ),
+                'status': 'success',
+            })
+        else:
+            report.append({
+                'title': 'Formatted Numbers Check',
+                'icon': 'magic',
+                'color': 'success',
+                'detail': 'No currency/percentage formatted columns detected.',
+                'status': 'success',
+            })
+
+    # ── 5. Handle missing values (Highly Precise) ────────────────────────────────
+    missing_log = {}
+
+    # Separate numeric and non-numeric columns
+    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    categorical_cols = [c for c in df.columns if c not in numeric_cols]
+
+    # 5a. Categorical columns imputation (using mode)
+    for col in categorical_cols:
+        n_missing = int(df[col].isnull().sum())
+        if n_missing > 0:
+            if missing_strategy == 'drop_rows':
+                df = df[df[col].notna()]
+                missing_log[col] = f'Rows with missing values dropped — {n_missing} row(s) removed'
+            else:
+                fill_val = df[col].mode()[0] if not df[col].mode().empty else 'Unknown'
+                df[col] = df[col].fillna(fill_val)
+                missing_log[col] = f'Imputed using Mode ("{fill_val}") — {n_missing} cell(s)'
+
+    # 5b. Numerical columns imputation (using KNNImputer for high precision, or mean/median/drop)
+    cols_to_knn = []
+    for col in numeric_cols:
+        n_missing = int(df[col].isnull().sum())
+        if n_missing > 0:
+            if missing_strategy == 'drop_rows':
+                df = df[df[col].notna()]
+                missing_log[col] = f'Rows with missing values dropped — {n_missing} row(s) removed'
+            elif missing_strategy == 'auto' and (n_missing / len(df) > 0.5):
+                df.drop(columns=[col], inplace=True)
+                missing_log[col] = f'COLUMN DROPPED (highly sparse: {round(n_missing/len(df)*100)}% missing)'
+            elif missing_strategy == 'mean':
+                fill_val = df[col].mean()
+                df[col] = df[col].fillna(fill_val)
+                missing_log[col] = f'Imputed using Mean ({fill_val:.4g}) — {n_missing} cell(s)'
+            elif missing_strategy == 'median':
+                fill_val = df[col].median()
+                df[col] = df[col].fillna(fill_val)
+                missing_log[col] = f'Imputed using Median ({fill_val:.4g}) — {n_missing} cell(s)'
+            elif missing_strategy == 'mode':
+                fill_val = df[col].mode()[0] if not df[col].mode().empty else 0
+                df[col] = df[col].fillna(fill_val)
+                missing_log[col] = f'Imputed using Mode ({fill_val}) — {n_missing} cell(s)'
+            else:
+                # strategy is 'auto' (KNN Imputer for precise, multi-variable imputation)
+                cols_to_knn.append(col)
+
+    if cols_to_knn:
+        try:
+            from sklearn.impute import KNNImputer
+            from sklearn.preprocessing import StandardScaler
+
+            # KNN Imputer requires scaling to prevent columns with larger scales from dominating the distance metric
+            # We scale all numeric columns that we have, impute, then inverse transform
+            numeric_df = df[numeric_cols].copy()
+            scaler = StandardScaler()
+            scaled_data = scaler.fit_transform(numeric_df)
+
+            imputer = KNNImputer(n_neighbors=5)
+            imputed_scaled = imputer.fit_transform(scaled_data)
+
+            imputed_data = scaler.inverse_transform(imputed_scaled)
+            imputed_df = pd.DataFrame(imputed_data, columns=numeric_cols, index=df.index)
+
+            for col in cols_to_knn:
+                n_missing = int(df[col].isnull().sum())
+                df[col] = imputed_df[col]
+                missing_log[col] = f'Imputed using KNN (k=5 neighbors) for high precision — {n_missing} cell(s)'
+        except Exception as e:
+            # Fallback to median if KNN fails
+            for col in cols_to_knn:
+                n_missing = int(df[col].isnull().sum())
+                fill_val = df[col].median()
+                df[col] = df[col].fillna(fill_val)
+                missing_log[col] = f'Imputed using Median (KNN fallback: {e}) — {n_missing} cell(s)'
+
+    if missing_log:
+        report.append({
+            'title': 'Missing Values Handled',
+            'icon': 'bandaid',
+            'color': 'info',
+            'detail': f'{len(missing_log)} column(s) had missing values processed.',
+            'status': 'info',
+            'breakdown': missing_log,
+        })
+    else:
+        report.append({
+            'title': 'Missing Values Check',
+            'icon': 'bandaid',
+            'color': 'success',
+            'detail': 'No missing values detected — dataset is complete.',
+            'status': 'success',
+        })
+
+    cleaned_shape = df.shape
+    report.append({
+        'title': 'Cleaning Complete',
+        'icon': 'check-circle',
+        'color': 'success',
+        'detail': (
+            f'Dataset cleaned: {original_shape[0]:,} → {cleaned_shape[0]:,} rows, '
+            f'{original_shape[1]} → {cleaned_shape[1]} columns.'
+        ),
+        'status': 'success',
+    })
+
+    return {
+        'df': df,
+        'report': report,
+        'original_shape': list(original_shape),
+        'cleaned_shape': list(cleaned_shape),
+    }
+
+
 def train_models(X: pd.DataFrame, y: pd.Series, problem_type: str,
-                 X_test: pd.DataFrame = None, y_test: pd.Series = None) -> dict:
+                 X_test: pd.DataFrame = None, y_test: pd.Series = None,
+                 tuning_mode: str = 'quick',
+                 selected_models: list = None,
+                 optimization_metric: str = None) -> dict:
     """Train a suite of models for classification or regression and return scores.
 
-    If X_test / y_test are provided the models are *evaluated* on the held-out
-    test set, giving honest generalisation metrics.  When they are absent
-    (e.g. in unit tests) the training data is used as a fallback.
+    Supports Quick Train vs Deep Hyperparameter Search (RandomizedSearchCV)
+    and custom algorithm selection.
     """
     n_est = 50 if len(X) > 20000 else 100
+
     if problem_type == 'regression':
-        models = {
+        available_models = {
             'linear_regression': LinearRegression(),
             'decision_tree_regressor': DecisionTreeRegressor(random_state=42),
             'random_forest_regressor': RandomForestRegressor(n_estimators=n_est, random_state=42),
             'gradient_boosting_regressor': GradientBoostingRegressor(n_estimators=n_est, random_state=42),
         }
+        param_grids = {
+            'decision_tree_regressor': {
+                'max_depth': [None, 5, 10, 20],
+                'min_samples_split': [2, 5, 10],
+            },
+            'random_forest_regressor': {
+                'n_estimators': [50, 100, 150],
+                'max_depth': [None, 10, 20],
+                'min_samples_split': [2, 5],
+            },
+            'gradient_boosting_regressor': {
+                'n_estimators': [50, 100],
+                'learning_rate': [0.01, 0.1, 0.2],
+                'max_depth': [3, 5],
+            },
+        }
     else:
-        models = {
+        available_models = {
             'logistic_regression': LogisticRegression(max_iter=1000, random_state=42),
             'decision_tree': DecisionTreeClassifier(random_state=42),
             'random_forest': RandomForestClassifier(n_estimators=n_est, random_state=42),
-            'knn': KNeighborsClassifier(n_neighbors=3),
+            'gradient_boosting': GradientBoostingClassifier(n_estimators=n_est, random_state=42),
+            'knn': KNeighborsClassifier(n_neighbors=5),
         }
-        # Skip SVC for large datasets because of O(N^3) time complexity
         if len(X) <= 15000:
-            models['svm'] = SVC(random_state=42)
+            available_models['svm'] = SVC(random_state=42, probability=True)
 
-    # Use test split for evaluation when available; fall back to train data
+        param_grids = {
+            'logistic_regression': {
+                'C': [0.1, 1.0, 10.0],
+            },
+            'decision_tree': {
+                'max_depth': [None, 5, 10, 20],
+                'min_samples_split': [2, 5, 10],
+            },
+            'random_forest': {
+                'n_estimators': [50, 100, 150],
+                'max_depth': [None, 10, 20],
+                'min_samples_split': [2, 5],
+            },
+            'gradient_boosting': {
+                'n_estimators': [50, 100],
+                'learning_rate': [0.01, 0.1, 0.2],
+                'max_depth': [3, 5],
+            },
+            'knn': {
+                'n_neighbors': [3, 5, 7, 9],
+                'weights': ['uniform', 'distance'],
+            },
+            'svm': {
+                'C': [0.1, 1.0, 10.0],
+                'kernel': ['rbf', 'linear'],
+            },
+        }
+
+    # Filter to selected models if provided
+    if selected_models:
+        models = {k: v for k, v in available_models.items() if k in selected_models}
+        if not models:
+            models = available_models
+    else:
+        models = available_models
+
     X_eval = X_test if X_test is not None else X
     y_eval = y_test if y_test is not None else y
 
     trained_models = {}
     scores = {}
-    for name, model in models.items():
-        model.fit(X, y)
-        preds = model.predict(X_eval)
+    best_params_log = {}
+
+    for name, base_model in models.items():
+        fitted_model = base_model
+        if tuning_mode == 'deep' and name in param_grids and len(X) >= 15:
+            try:
+                grid = param_grids[name]
+                scoring_func = 'r2' if problem_type == 'regression' else 'f1_weighted'
+                search = RandomizedSearchCV(
+                    base_model,
+                    param_distributions=grid,
+                    n_iter=min(5, sum(len(v) for v in grid.values())),
+                    cv=min(3, max(2, len(X) // 10)),
+                    scoring=scoring_func,
+                    random_state=42,
+                    n_jobs=-1,
+                )
+                search.fit(X, y)
+                fitted_model = search.best_estimator_
+                best_params_log[name] = search.best_params_
+            except Exception:
+                fitted_model.fit(X, y)
+        else:
+            fitted_model.fit(X, y)
+
+        preds = fitted_model.predict(X_eval)
         if problem_type == 'regression':
             scores[name] = float(r2_score(y_eval, preds))
         else:
             scores[name] = float(accuracy_score(y_eval, preds))
+
         trained_models[name] = {
-            'model': model,
+            'model': fitted_model,
             'predictions': preds,
             'y_eval': y_eval,
+            'best_params': best_params_log.get(name, None),
         }
 
     return {
@@ -100,6 +419,8 @@ def train_models(X: pd.DataFrame, y: pd.Series, problem_type: str,
         'trained_models': trained_models,
         'models': list(models.keys()),
         'scores': scores,
+        'best_params_log': best_params_log,
+        'tuning_mode': tuning_mode,
     }
 
 
@@ -112,7 +433,8 @@ def _save_chart(fig, save_path: str) -> str:
     return save_path
 
 
-def generate_visualizations(df: pd.DataFrame, y: pd.Series, summary: dict, save_dir: str) -> dict:
+def generate_visualizations(df: pd.DataFrame, y: pd.Series, summary: dict, save_dir: str,
+                            best_model=None) -> dict:
     """Generate summary charts for the dataset and trained models."""
     charts = {}
 
@@ -127,6 +449,15 @@ def generate_visualizations(df: pd.DataFrame, y: pd.Series, summary: dict, save_
         sns.heatmap(corr, annot=False, cmap='coolwarm', ax=ax)
         ax.set_title('Correlation Heatmap')
         charts['correlation_heatmap'] = _save_chart(fig, os.path.join(save_dir, 'correlation_heatmap.png'))
+
+        # Box plot for numeric spread and outlier visibility.
+        boxplot_df = numeric_df.iloc[:, :12]
+        fig, ax = plt.subplots(figsize=(max(7, len(boxplot_df.columns) * 0.8), 5))
+        sns.boxplot(data=boxplot_df, ax=ax, color='#14B8A6')
+        ax.set_title('Numeric Feature Distributions')
+        ax.set_ylabel('Value')
+        ax.tick_params(axis='x', rotation=45)
+        charts['numeric_boxplot'] = _save_chart(fig, os.path.join(save_dir, 'numeric_boxplot.png'))
 
     # Missing values chart
     missing = df.isnull().sum().sort_values(ascending=False)
@@ -148,15 +479,40 @@ def generate_visualizations(df: pd.DataFrame, y: pd.Series, summary: dict, save_
         ax.set_title('Target Distribution')
     charts['target_distribution'] = _save_chart(fig, os.path.join(save_dir, 'target_distribution.png'))
 
-    # Feature importance graph
-    if not numeric_df.empty:
-        feature_names = [c for c in numeric_df.columns if c != y.name]
-        if feature_names:
-            fig, ax = plt.subplots(figsize=(6, 4))
-            importance = pd.Series(np.random.rand(len(feature_names)), index=feature_names)
-            importance.sort_values(ascending=False).plot(kind='bar', ax=ax, color='mediumseagreen')
-            ax.set_title('Feature Importance (placeholder)')
-            charts['feature_importance'] = _save_chart(fig, os.path.join(save_dir, 'feature_importance.png'))
+    # Feature importance graph from the selected model.
+    feature_names = [c for c in numeric_df.columns if c != y.name]
+    importance = None
+    if best_model is not None and feature_names:
+        if hasattr(best_model, 'feature_importances_'):
+            values = np.asarray(best_model.feature_importances_)
+            if len(values) == len(feature_names):
+                importance = pd.Series(values, index=feature_names)
+        elif hasattr(best_model, 'coef_'):
+            values = np.asarray(best_model.coef_)
+            if values.ndim > 1:
+                values = np.mean(np.abs(values), axis=0)
+            else:
+                values = np.abs(values)
+            if len(values) == len(feature_names):
+                importance = pd.Series(values, index=feature_names)
+    if importance is not None and not importance.empty:
+        fig, ax = plt.subplots(figsize=(7, 4))
+        importance.nlargest(12).sort_values().plot(kind='barh', ax=ax, color='mediumseagreen')
+        ax.set_title('Top Feature Importance')
+        ax.set_xlabel('Importance')
+        charts['feature_importance'] = _save_chart(fig, os.path.join(save_dir, 'feature_importance.png'))
+
+        strongest_feature = importance.idxmax()
+        if strongest_feature in df.columns and y.name in df.columns:
+            relationship_df = df[[strongest_feature, y.name]].dropna()
+            if not relationship_df.empty:
+                fig, ax = plt.subplots(figsize=(7, 4))
+                sns.scatterplot(data=relationship_df, x=strongest_feature, y=y.name, ax=ax,
+                                color='#F59E0B', alpha=0.65)
+                ax.set_title(f'{strongest_feature} vs. {y.name}')
+                charts['strongest_feature_relationship'] = _save_chart(
+                    fig, os.path.join(save_dir, 'strongest_feature_relationship.png')
+                )
 
     # Model accuracy comparison graph
     scores = summary.get('model_scores', {})
@@ -173,12 +529,21 @@ def generate_visualizations(df: pd.DataFrame, y: pd.Series, summary: dict, save_
 def select_best_model(X: pd.DataFrame, y: pd.Series, problem_type: str,
                       save_dir: str = None,
                       X_test: pd.DataFrame = None,
-                      y_test: pd.Series = None) -> dict:
-    """Train models, compare metrics on the test split, select the best, and optionally save it."""
+                      y_test: pd.Series = None,
+                      tuning_mode: str = 'quick',
+                      selected_models: list = None,
+                      optimization_metric: str = None) -> dict:
+    """Train models, compare metrics on the test split, select the best model based on chosen optimization metric."""
     if save_dir is None:
         save_dir = os.path.join(os.path.dirname(__file__), 'models')
 
-    training_result = train_models(X, y, problem_type, X_test=X_test, y_test=y_test)
+    training_result = train_models(
+        X, y, problem_type,
+        X_test=X_test, y_test=y_test,
+        tuning_mode=tuning_mode,
+        selected_models=selected_models,
+        optimization_metric=optimization_metric,
+    )
     metrics_by_model = {}
 
     if problem_type == 'regression':
@@ -191,33 +556,37 @@ def select_best_model(X: pd.DataFrame, y: pd.Series, problem_type: str,
                 'rmse': float(np.sqrt(mean_squared_error(y_eval, preds))),
                 'r2':   float(r2_score(y_eval, preds)),
             }
-        best_name = min(metrics_by_model, key=lambda n: (metrics_by_model[n]['rmse'], -metrics_by_model[n]['r2']))
-        best_metric = 'rmse'
-        sort_ascending = True
+        metric_key = optimization_metric if optimization_metric in {'r2', 'rmse', 'mae'} else 'r2'
+        if metric_key == 'r2':
+            best_name = max(metrics_by_model, key=lambda n: metrics_by_model[n]['r2'])
+            sort_ascending = False
+        else:
+            best_name = min(metrics_by_model, key=lambda n: metrics_by_model[n][metric_key])
+            sort_ascending = True
+        best_metric = metric_key
     else:
         for name, info in training_result['trained_models'].items():
             preds  = info['predictions']
             y_eval = info['y_eval']
-            # Use 'weighted' averaging so multi-class targets don't raise ValueError
             metrics_by_model[name] = {
                 'accuracy':  float(accuracy_score(y_eval, preds)),
                 'precision': float(precision_score(y_eval, preds, average='weighted', zero_division=0)),
                 'recall':    float(recall_score(y_eval, preds, average='weighted', zero_division=0)),
                 'f1':        float(f1_score(y_eval, preds, average='weighted', zero_division=0)),
             }
-        best_name = max(metrics_by_model, key=lambda n: (metrics_by_model[n]['f1'], metrics_by_model[n]['accuracy']))
-        best_metric = 'f1'
+        metric_key = optimization_metric if optimization_metric in {'accuracy', 'precision', 'recall', 'f1'} else 'f1'
+        best_name = max(metrics_by_model, key=lambda n: (metrics_by_model[n][metric_key], metrics_by_model[n]['accuracy']))
+        best_metric = metric_key
         sort_ascending = False
 
-    best_model = training_result['trained_models'][best_name]['model']
+    best_model_info = training_result['trained_models'][best_name]
+    best_model = best_model_info['model']
     best_model_path = None
     if save_dir:
         os.makedirs(save_dir, exist_ok=True)
         best_model_path = os.path.join(save_dir, f'{best_name}.pkl')
         with open(best_model_path, 'wb') as f:
             pickle.dump(best_model, f)
-    else:
-        best_model_path = None
 
     return {
         'problem_type': problem_type,
@@ -227,6 +596,9 @@ def select_best_model(X: pd.DataFrame, y: pd.Series, problem_type: str,
         'metrics': metrics_by_model,
         'best_metric': best_metric,
         'sort_ascending': sort_ascending,
+        'best_params': best_model_info.get('best_params'),
+        'best_params_log': training_result.get('best_params_log', {}),
+        'tuning_mode': tuning_mode,
     }
 
 
@@ -240,6 +612,10 @@ def run_preprocessing(
     scale_method: str = 'standard',
     missing_strategy: str = 'auto',
     save_dir: str = None,
+    problem_type: str = None,
+    tuning_mode: str = 'quick',
+    selected_models: list = None,
+    optimization_metric: str = None,
 ) -> dict:
     """
     Full preprocessing pipeline.
@@ -266,7 +642,7 @@ def run_preprocessing(
     }
 
     # ── 1. Load ────────────────────────────────────────────────────────────────
-    df = pd.read_csv(file_path)
+    df = read_csv_file(file_path)
     summary['original_shape'] = list(df.shape)
     summary['steps'].append({
         'title': 'Dataset Loaded',
@@ -350,7 +726,10 @@ def run_preprocessing(
 
     feature_columns = list(X.columns)
     summary['feature_columns'] = feature_columns
-    summary['problem_type'] = detect_problem_type(y)
+    summary['problem_type'] = (
+        problem_type if problem_type in {'classification', 'regression'}
+        else detect_problem_type(y)
+    )
     summary['steps'].append({
         'title': 'Problem Type Detected',
         'icon': 'diagram-3',
@@ -505,26 +884,45 @@ def run_preprocessing(
     })
 
     # ── 10. Train models and collect scores ──────────────────────────────────
-    models_dir = os.path.join(os.path.dirname(__file__), 'models')
+    models_dir = save_dir or os.path.join(os.path.dirname(__file__), 'models')
     os.makedirs(models_dir, exist_ok=True)
-    best_result = select_best_model(X_train, y_train, summary['problem_type'],
-                                    save_dir=models_dir,
-                                    X_test=X_test, y_test=y_test)
+    best_result = select_best_model(
+        X_train, y_train, summary['problem_type'],
+        save_dir=models_dir,
+        X_test=X_test, y_test=y_test,
+        tuning_mode=tuning_mode,
+        selected_models=selected_models,
+        optimization_metric=optimization_metric,
+    )
     summary['model_scores'] = {
-        name: metrics['accuracy' if summary['problem_type'] != 'regression' else 'r2']
+        name: metrics.get(best_result.get('best_metric', 'accuracy'), list(metrics.values())[0])
         for name, metrics in best_result['metrics'].items()
     }
     summary['best_model'] = {
         'name': best_result['best_model_name'],
         'path': best_result['best_model_path'],
         'metrics': best_result['metrics'][best_result['best_model_name']],
+        'best_params': best_result.get('best_params'),
     }
-    summary['visualizations'] = generate_visualizations(pd.concat([X_train, y_train], axis=1), y_train, summary, os.path.join(os.path.dirname(__file__), 'reports'))
+    summary['tuning_mode'] = tuning_mode
+    summary['optimization_metric'] = best_result.get('best_metric', 'default')
+    summary['all_metrics'] = best_result['metrics']
+
+    reports_dir = save_dir or os.path.join(os.path.dirname(__file__), 'reports')
+    summary['visualizations'] = generate_visualizations(
+        pd.concat([X_train, y_train], axis=1), y_train, summary, reports_dir,
+        best_model=best_result['best_model']
+    )
+    tuning_lbl = "Deep RandomizedSearchCV Search" if tuning_mode == 'deep' else "Quick Baseline Train"
     summary['steps'].append({
-        'title': 'Model Training Complete',
+        'title': f'AutoML Model Training ({tuning_mode.title()} Mode)',
         'icon': 'cpu',
         'color': 'success',
-        'detail': f'Trained {len(best_result["metrics"])} {summary["problem_type"]} model(s) and selected "{best_result["best_model_name"]}" as the best performer.',
+        'detail': (
+            f'Trained {len(best_result["metrics"])} model(s) using {tuning_lbl}. '
+            f'Selected "{best_result["best_model_name"].replace("_", " ").title()}" as winning model '
+            f'optimized for {best_result.get("best_metric", "performance").upper()}.'
+        ),
         'status': 'success',
     })
 

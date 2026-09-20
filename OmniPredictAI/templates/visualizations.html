@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- Plotly.js CDN -->
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+
+<div class="container-fluid py-4 px-4 px-lg-5">
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb breadcrumb-custom">
+            <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}" class="text-secondary-custom text-decoration-none">Dashboard</a></li>
+            <li class="breadcrumb-item active text-light" aria-current="page">Visualizations & Insights</li>
+        </ol>
+    </nav>
+
+    <div class="visualization-board datasets-card rounded-4 border border-secondary-subtle p-4 p-lg-5 mb-4">
+        <!-- Board Header -->
+        <div class="visualization-board-header d-flex align-items-start justify-content-between flex-wrap gap-3 mb-4">
+            <div>
+                <div class="eyebrow-label mb-2"><i class="bi bi-magic me-1"></i>Interactive AI Visualizations & Insights</div>
+                <h1 class="text-light fw-bold fs-2 mb-2">{{ record.original_name }}</h1>
+                <div class="text-secondary-custom small">
+                    {{ summary.problem_type | title }} / {{ summary.feature_columns | length }} features
+                    <span class="mx-2 opacity-50">/</span>
+                    Updated {{ updated_at[:16].replace('T', ' ') }}
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <button type="button" class="btn btn-sm btn-outline-light-custom rounded-pill px-3" id="toggleChartViewBtn">
+                    <i class="bi bi-toggle-on me-1" id="toggleIcon"></i><span id="toggleText">Static View</span>
+                </button>
+                <a href="{{ url_for('dashboard') }}" class="btn btn-outline-light-custom rounded-pill px-3 flex-shrink-0">
+                    <i class="bi bi-arrow-left me-1"></i>Dashboard
+                </a>
+            </div>
+        </div>
+
+        <!-- Stat Bar -->
+        <div class="row g-3 mb-4">
+            <div class="col-6 col-lg-3">
+                <div class="stat-card p-3 rounded-3 h-100">
+                    <div class="text-secondary-custom small">Rows Analyzed</div>
+                    <div class="text-light fw-bold fs-4">{{ "{:,}".format(summary.train_samples + summary.test_samples) }}</div>
+                </div>
+            </div>
+            <div class="col-6 col-lg-3">
+                <div class="stat-card p-3 rounded-3 h-100">
+                    <div class="text-secondary-custom small">Target Column</div>
+                    <div class="text-light fw-bold text-truncate" title="{{ summary.target_column }}">{{ summary.target_column }}</div>
+                </div>
+            </div>
+            <div class="col-6 col-lg-3">
+                <div class="stat-card p-3 rounded-3 h-100">
+                    <div class="text-secondary-custom small">Winning Model</div>
+                    <div class="text-light fw-bold text-truncate" title="{{ summary.best_model.name }}">{{ summary.best_model.name.replace('_', ' ') | title }}</div>
+                </div>
+            </div>
+            <div class="col-6 col-lg-3">
+                <div class="stat-card p-3 rounded-3 h-100">
+                    <div class="text-secondary-custom small">Visual Artifacts</div>
+                    <div class="text-light fw-bold fs-4">{{ visualizations | length }}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Automated AI Executive Insights Briefing ──────────────────────── -->
+        {% if ai_insights %}
+        <div class="ai-insights-briefing rounded-4 border border-secondary-subtle p-4 mb-4" style="background: rgba(124, 58, 237, 0.08);">
+            <div class="d-flex align-items-center gap-2 mb-3">
+                <i class="bi bi-lightbulb-fill text-warning fs-4"></i>
+                <h5 class="text-light fw-bold mb-0">Automated AI Insights Briefing</h5>
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-1 ms-auto" style="font-size:0.7rem;">Live Executive Brief</span>
+            </div>
+            <div class="row g-3">
+                {% for insight in ai_insights %}
+                <div class="col-md-4">
+                    <div class="p-3 rounded-3 border border-secondary-subtle h-100" style="background: rgba(11, 7, 20, 0.4);">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <i class="bi bi-{{ insight.icon }} text-{{ insight.color }}"></i>
+                            <span class="text-light fw-semibold small">{{ insight.title }}</span>
+                        </div>
+                        <p class="text-secondary-custom small mb-0" style="line-height:1.4;">
+                            {{ insight.text | safe }}
+                        </p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- ── Plotly Interactive Container ──────────────────────────────────── -->
+        <div id="plotlyInteractiveSection" class="row g-4 mb-4">
+            {% if plotly_data.model_comparison %}
+            <div class="col-md-6">
+                <div class="chart-tile h-100 p-3">
+                    <div class="chart-tile-label d-flex justify-content-between align-items-center">
+                        <span>Model Comparison (Interactive Plotly)</span>
+                        <span class="badge bg-primary-subtle text-primary rounded-pill px-2" style="font-size:0.65rem;">Hover & Zoom</span>
+                    </div>
+                    <div id="plotlyModelChart" style="min-height:300px;"></div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if plotly_data.correlation_matrix %}
+            <div class="col-md-6">
+                <div class="chart-tile h-100 p-3">
+                    <div class="chart-tile-label d-flex justify-content-between align-items-center">
+                        <span>Correlation Matrix Heatmap</span>
+                        <span class="badge bg-info-subtle text-info rounded-pill px-2" style="font-size:0.65rem;">Interactive Heatmap</span>
+                    </div>
+                    <div id="plotlyCorrChart" style="min-height:300px;"></div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- ── Static Matplotlib Charts Container (Toggleable) ──────────────── -->
+        <div id="staticChartsSection" class="d-none">
+            {% if visualizations %}
+            <div class="row g-4">
+                {% for chart_name, chart_path in visualizations.items() %}
+                <div class="col-md-6 col-xl-4">
+                    <div class="chart-tile h-100">
+                        <div class="chart-tile-label">{{ chart_name.replace('_', ' ') | title }}</div>
+                        <div class="chart-frame">
+                            <img src="{{ url_for('serve_report_image', dataset_id=record.id, filename=chart_path) }}" class="img-fluid w-100" loading="lazy" alt="{{ chart_name }}">
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% include '_assistant.html' %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const plotlyData = {{ plotly_data | tojson }};
+    const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+
+    const layoutDefaults = {
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        font: { color: isDark ? '#FFFFFF' : '#1E1B4B', family: 'Plus Jakarta Sans, sans-serif', size: 11 },
+        margin: { t: 30, r: 20, l: 40, b: 40 },
+    };
+
+    // Render Model Comparison Plotly Chart
+    if (plotlyData.model_comparison && document.getElementById('plotlyModelChart')) {
+        const trace = {
+            x: plotlyData.model_comparison.x,
+            y: plotlyData.model_comparison.y,
+            type: 'bar',
+            marker: {
+                color: plotlyData.model_comparison.y,
+                colorscale: [[0, '#7C3AED'], [1, '#A855F7']],
+            },
+            text: plotlyData.model_comparison.y.map(v => v.toFixed(4)),
+            textposition: 'auto',
+        };
+        Plotly.newPlot('plotlyModelChart', [trace], {
+            ...layoutDefaults,
+            title: { text: 'Evaluated Model Scores', font: { size: 13, color: isDark ? '#A1A1AA' : '#4B5563' } },
+            yaxis: { range: [0, 1.05], gridcolor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' },
+            xaxis: { gridcolor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }
+        }, { responsive: true, displayModeBar: false });
+    }
+
+    // Render Correlation Matrix Plotly Heatmap
+    if (plotlyData.correlation_matrix && document.getElementById('plotlyCorrChart')) {
+        const trace = {
+            z: plotlyData.correlation_matrix.z,
+            x: plotlyData.correlation_matrix.x,
+            y: plotlyData.correlation_matrix.y,
+            type: 'heatmap',
+            colorscale: 'Viridis',
+            showscale: true,
+        };
+        Plotly.newPlot('plotlyCorrChart', [trace], {
+            ...layoutDefaults,
+            title: { text: 'Feature Correlations', font: { size: 13, color: isDark ? '#A1A1AA' : '#4B5563' } }
+        }, { responsive: true, displayModeBar: false });
+    }
+
+    // Toggle View Mode (Plotly Interactive vs Static Images)
+    const toggleBtn = document.getElementById('toggleChartViewBtn');
+    const interactiveSec = document.getElementById('plotlyInteractiveSection');
+    const staticSec = document.getElementById('staticChartsSection');
+    const toggleText = document.getElementById('toggleText');
+    let showingInteractive = true;
+
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', function () {
+            showingInteractive = !showingInteractive;
+            if (showingInteractive) {
+                interactiveSec.classList.remove('d-none');
+                staticSec.classList.add('d-none');
+                toggleText.textContent = 'Static View';
+            } else {
+                interactiveSec.classList.add('d-none');
+                staticSec.classList.remove('d-none');
+                toggleText.textContent = 'Plotly Interactive View';
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

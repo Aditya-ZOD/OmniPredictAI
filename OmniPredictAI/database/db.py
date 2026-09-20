@@ -123,6 +123,18 @@ def delete_dataset(dataset_id, user_id):
     finally:
         conn.close()
 
+def update_dataset_file_metadata(dataset_id, user_id, num_rows, num_cols, file_size):
+    """Updates stored metadata after an owner edits a dataset."""
+    conn = get_db_connection()
+    try:
+        conn.execute(
+            "UPDATE datasets SET num_rows = ?, num_cols = ?, file_size = ? WHERE id = ? AND user_id = ?",
+            (num_rows, num_cols, file_size, dataset_id, user_id)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
 # ─── Model Config Queries ─────────────────────────────────────────────────────
 
 def save_model_config(dataset_id, user_id, target_column, problem_type, excluded_columns_json):
@@ -235,6 +247,47 @@ def get_prediction_history(user_id):
         ).fetchall()
     finally:
         conn.close()
+
+
+def save_assistant_history(user_id, dataset_id, question, response):
+    """Stores a copilot exchange for the user's dataset."""
+    conn = get_db_connection()
+    try:
+        conn.execute(
+            "INSERT INTO assistant_history (user_id, dataset_id, question, response) VALUES (?, ?, ?, ?)",
+            (user_id, dataset_id, question, response)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_assistant_history(user_id, dataset_id, limit=30):
+    """Returns recent copilot exchanges in conversation order."""
+    conn = get_db_connection()
+    try:
+        return conn.execute(
+            """SELECT * FROM assistant_history
+               WHERE user_id = ? AND dataset_id = ?
+               ORDER BY created_at DESC, id DESC LIMIT ?""",
+            (user_id, dataset_id, limit)
+        ).fetchall()[::-1]
+    finally:
+        conn.close()
+
+
+def clear_assistant_history(user_id, dataset_id):
+    """Deletes all assistant history records for a user's dataset."""
+    conn = get_db_connection()
+    try:
+        conn.execute(
+            "DELETE FROM assistant_history WHERE user_id = ? AND dataset_id = ?",
+            (user_id, dataset_id)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
 
 
 def get_admin_dashboard_stats():

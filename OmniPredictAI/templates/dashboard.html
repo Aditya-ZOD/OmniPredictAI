@@ -45,7 +45,7 @@
                     <span class="text-secondary-custom small">Models Active</span>
                     <span class="stat-icon bg-warning-subtle rounded-2 p-1"><i class="bi bi-cpu text-warning"></i></span>
                 </div>
-                <h3 class="text-light fw-bold mb-0">0</h3>
+                <h3 class="text-light fw-bold mb-0">{{ datasets | selectattr('is_preprocessed') | list | length }}</h3>
             </div>
         </div>
         <div class="col-6 col-md-3">
@@ -54,25 +54,36 @@
                     <span class="text-secondary-custom small">Reports Generated</span>
                     <span class="stat-icon bg-info-subtle rounded-2 p-1"><i class="bi bi-file-earmark-bar-graph text-info"></i></span>
                 </div>
-                <h3 class="text-light fw-bold mb-0">0</h3>
+                <h3 class="text-light fw-bold mb-0">{{ datasets | selectattr('is_preprocessed') | list | length }}</h3>
             </div>
         </div>
     </div>
 
     {% if latest_summary and latest_summary.visualizations %}
-    <div class="datasets-card rounded-4 border border-secondary-subtle p-4 mb-4">
-        <div class="d-flex align-items-center justify-content-between mb-3">
-            <h5 class="text-light fw-bold mb-0">
-                <i class="bi bi-bar-chart-line text-gradient-primary me-2"></i>Visualization Dashboard
-            </h5>
-            <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill small">Auto-generated</span>
+    <div class="visualization-board datasets-card rounded-4 border border-secondary-subtle p-4 mb-4">
+        <div class="visualization-board-header d-flex align-items-center justify-content-between gap-3 mb-4">
+            <div>
+                <div class="eyebrow-label mb-2"><i class="bi bi-activity me-1"></i>Latest analysis</div>
+                <h5 class="text-light fw-bold mb-1">
+                    <i class="bi bi-bar-chart-line text-gradient-primary me-2"></i>Visualization Board
+                </h5>
+                <div class="text-secondary-custom small">
+                    {{ datasets | selectattr('id', 'equalto', latest_dataset_id) | map(attribute='original_name') | first }}
+                    {% if latest_result and latest_result.preprocessed_at %}
+                    <span class="mx-2 opacity-50">/</span>Updated {{ latest_result.preprocessed_at[:16].replace('T', ' ') }}
+                    {% endif %}
+                </div>
+            </div>
+            <span class="board-status"><span class="status-dot"></span>Live dataset view</span>
         </div>
         <div class="row g-4">
             {% for chart_name, chart_path in latest_summary.visualizations.items() %}
             <div class="col-md-6 col-xl-4">
-                <div class="border border-secondary-subtle rounded-3 p-3 h-100">
-                    <div class="text-light fw-semibold small mb-2">{{ chart_name.replace('_', ' ') | title }}</div>
-                    <img src="/{{ chart_path.replace('\\', '/') }}" class="img-fluid rounded-2 w-100" alt="{{ chart_name }}">
+                <div class="chart-tile h-100">
+                    <div class="chart-tile-label">{{ chart_name.replace('_', ' ') | title }}</div>
+                    <div class="chart-frame">
+                        <img src="{{ url_for('serve_report_image', dataset_id=latest_dataset_id, filename=chart_path) }}" class="img-fluid w-100" loading="lazy" alt="{{ chart_name }}">
+                    </div>
                 </div>
             </div>
             {% endfor %}
@@ -146,11 +157,23 @@
                                title="Configure Target">
                                 <i class="bi bi-crosshair me-1"></i>Configure
                             </a>
+                            <a href="{{ url_for('clean_dataset_page', dataset_id=ds.id) }}"
+                               class="btn btn-sm btn-outline-info rounded-pill px-3 me-1"
+                               title="Clean Dataset">
+                                <i class="bi bi-magic me-1"></i>Clean
+                            </a>
                             <a href="{{ url_for('predict_dataset', dataset_id=ds.id) }}"
                                class="btn btn-sm btn-outline-info rounded-pill px-3 me-1"
                                title="Predict">
                                 <i class="bi bi-lightning-charge me-1"></i>Predict
                             </a>
+                            {% if ds.is_preprocessed %}
+                            <a href="{{ url_for('dataset_visualizations', dataset_id=ds.id) }}"
+                               class="btn btn-sm btn-outline-warning rounded-pill px-3 me-1"
+                               title="Show visualizations">
+                                <i class="bi bi-bar-chart-line me-1"></i>Visualize
+                            </a>
+                            {% endif %}
                             <form action="{{ url_for('delete_dataset', dataset_id=ds.id) }}" method="POST"
                                   class="d-inline" onsubmit="return confirm('Delete this dataset?')">
                                 <button type="submit" class="btn btn-sm btn-danger-soft rounded-pill px-3" title="Delete">

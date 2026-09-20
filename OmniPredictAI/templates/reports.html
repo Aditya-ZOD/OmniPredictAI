@@ -76,7 +76,7 @@
             <div class="col-md-6 col-xl-4">
                 <div class="border border-secondary-subtle rounded-3 p-3">
                     <div class="text-light fw-semibold small mb-2">{{ chart_name.replace('_', ' ') | title }}</div>
-                    <img src="/{{ chart_path.replace('\\', '/') }}" class="img-fluid rounded-2 w-100" alt="{{ chart_name }}">
+                    <img src="{{ url_for('serve_report_image', dataset_id=report_data.dataset_id, filename=chart_path) }}" class="img-fluid rounded-2 w-100" alt="{{ chart_name }}">
                 </div>
             </div>
             {% endfor %}

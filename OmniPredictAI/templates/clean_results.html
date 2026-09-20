@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4 px-4 px-lg-5">
+
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb breadcrumb-custom">
+            <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}"
+                    class="text-secondary-custom text-decoration-none">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('dataset_preview', dataset_id=record.id) }}"
+                    class="text-secondary-custom text-decoration-none">{{ record.original_name }}</a></li>
+            <li class="breadcrumb-item active text-light" aria-current="page">Cleaning Report</li>
+        </ol>
+    </nav>
+
+    <!-- Page Header -->
+    <div class="row align-items-center mb-4 g-3">
+        <div class="col">
+            <h1 class="fw-bold text-light fs-2 mb-1">
+                <i class="bi bi-file-earmark-diff text-gradient-primary me-2"></i>Smart Cleaning Report
+            </h1>
+            <p class="text-secondary-custom mb-0">
+                Audit logs and changes for <strong class="text-light">{{ record.original_name }}</strong>
+            </p>
+        </div>
+        <div class="col-auto">
+            <a href="{{ url_for('dashboard') }}"
+                class="btn btn-outline-light-custom rounded-pill px-4">
+                <i class="bi bi-house-door me-2"></i>Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Overview Banner: Before & After -->
+    <div class="row g-4 mb-4">
+        <!-- Cleaning Success Banner -->
+        <div class="col-lg-6">
+            <div class="datasets-card rounded-4 border border-success-subtle p-4 h-100 d-flex flex-column justify-content-between"
+                 style="background: linear-gradient(135deg, rgba(34,197,94,0.08), rgba(20,184,166,0.05));">
+                <div>
+                    <div class="d-flex align-items-center gap-3 mb-3">
+                        <div class="bg-success text-light rounded-circle d-flex align-items-center justify-content-center"
+                             style="width:48px;height:48px;">
+                            <i class="bi bi-check-lg fs-4"></i>
+                        </div>
+                        <div>
+                            <h4 class="text-light fw-bold mb-0">Cleaning Completed!</h4>
+                            <span class="text-secondary-custom small">Applied precise multi-variable algorithms</span>
+                        </div>
+                    </div>
+                    <p class="text-secondary-custom small mb-4">
+                        All detected inconsistencies, duplicates, formatting issues, and missing fields have been successfully resolved. Your cleaned dataset is ready for high-accuracy training.
+                    </p>
+                </div>
+                <div class="d-flex flex-wrap gap-2">
+                    <a href="{{ url_for('download_clean_dataset', dataset_id=record.id) }}"
+                       class="btn btn-gradient-primary rounded-pill px-4 py-2">
+                        <i class="bi bi-download me-2"></i>Download Cleaned CSV
+                    </a>
+                    <a href="{{ url_for('configure_target', dataset_id=record.id) }}"
+                       class="btn btn-outline-success rounded-pill px-4 py-2">
+                        <i class="bi bi-crosshair me-2"></i>Configure ML Target
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Shape Comparison Stats -->
+        <div class="col-lg-6">
+            <div class="datasets-card rounded-4 border border-secondary-subtle p-4 h-100 d-flex flex-column justify-content-between">
+                <h5 class="text-light fw-bold mb-3">
+                    <i class="bi bi-arrow-left-right text-gradient-primary me-2"></i>Dataset Transformation
+                </h5>
+                <div class="row g-3 align-items-center justify-content-center text-center my-auto">
+                    <!-- Before -->
+                    <div class="col-5">
+                        <span class="text-secondary-custom small d-block mb-1">ORIGINAL SIZE</span>
+                        <h3 class="text-light fw-bold mb-0">{{ "{:,}".format(summary.original_shape[0]) }}</h3>
+                        <span class="text-secondary small">rows</span>
+                        <div class="text-light fw-semibold mt-2">{{ summary.original_shape[1] }} <span class="text-secondary small">cols</span></div>
+                    </div>
+                    <!-- Arrow -->
+                    <div class="col-2 text-center">
+                        <i class="bi bi-arrow-right fs-2 text-primary"></i>
+                    </div>
+                    <!-- After -->
+                    <div class="col-5">
+                        <span class="text-success small d-block mb-1">CLEANED SIZE</span>
+                        <h3 class="text-success fw-bold mb-0">{{ "{:,}".format(summary.cleaned_shape[0]) }}</h3>
+                        <span class="text-success-emphasis small">rows</span>
+                        <div class="text-success fw-semibold mt-2">{{ summary.cleaned_shape[1] }} <span class="text-success-emphasis small">cols</span></div>
+                    </div>
+                </div>
+                <div class="mt-4 pt-3 border-top border-secondary-subtle d-flex justify-content-between text-secondary-custom small">
+                    <span>Cleaned by: <strong>{{ summary.cleaned_at }}</strong></span>
+                    <span>System: <strong>OmniPredict AI</strong></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Execution log & previews -->
+    <div class="row g-4">
+        <!-- Left: Change Log -->
+        <div class="col-lg-5">
+            <div class="datasets-card rounded-4 border border-secondary-subtle p-4 h-100">
+                <h5 class="text-light fw-bold mb-4">
+                    <i class="bi bi-journal-text text-gradient-primary me-2"></i>Cleaning Audit Logs
+                </h5>
+                <div class="d-flex flex-column gap-3">
+                    {% for step in summary.report %}
+                    <div class="pipeline-step-card rounded-3 border p-3
+                        {% if step.status == 'success' %}border-success-subtle bg-success-subtle-10
+                        {% elif step.status == 'warning' %}border-warning-subtle bg-warning-subtle-10
+                        {% elif step.status == 'info' %}border-primary-subtle bg-primary-subtle-10
+                        {% else %}border-secondary-subtle{% endif %}">
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="step-num-badge rounded-circle d-flex align-items-center justify-content-center flex-shrink-0
+                                {% if step.status == 'success' %}bg-success-subtle text-success
+                                {% elif step.status == 'warning' %}bg-warning-subtle text-warning
+                                {% elif step.status == 'info' %}bg-primary-subtle text-primary
+                                {% else %}bg-secondary-subtle text-secondary{% endif %}"
+                                style="width:36px;height:36px;">
+                                <i class="bi bi-{{ step.icon }}"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center justify-content-between mb-1">
+                                    <span class="text-light fw-semibold small">{{ step.title }}</span>
+                                    <span class="badge rounded-pill px-2
+                                        {% if step.status == 'success' %}bg-success-subtle text-success
+                                        {% elif step.status == 'warning' %}bg-warning-subtle text-warning
+                                        {% elif step.status == 'info' %}bg-primary-subtle text-primary
+                                        {% else %}bg-secondary-subtle text-secondary{% endif %}"
+                                        style="font-size:0.65rem;">
+                                        {{ step.status | upper }}
+                                    </span>
+                                </div>
+                                <p class="text-secondary-custom small mb-0">{{ step.detail }}</p>
+
+                                <!-- Audit details breakdown -->
+                                {% if step.breakdown is defined and step.breakdown %}
+                                <div class="mt-2 ps-2 border-start border-secondary-subtle">
+                                    {% for col, info in step.breakdown.items() %}
+                                    <div class="text-secondary small" style="font-size:0.72rem;">
+                                        <span class="text-light fw-semibold">{{ col }}</span> →
+                                        <span class="text-warning-emphasis">{{ info }}</span>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Cleaned Data Preview -->
+        <div class="col-lg-7">
+            <div class="datasets-card rounded-4 border border-secondary-subtle p-4 h-100">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <h5 class="text-light fw-bold mb-0">
+                        <i class="bi bi-eye text-gradient-primary me-2"></i>Cleaned Data Preview
+                    </h5>
+                    <span class="text-secondary-custom small">First 10 rows</span>
+                </div>
+
+                {% if preview_rows %}
+                <div class="table-responsive preview-table-wrapper" style="max-height: 480px;">
+                    <table class="table table-dark-custom table-sm mb-0">
+                        <thead>
+                            <tr>
+                                <th class="text-secondary" style="width:40px;">#</th>
+                                {% for col in columns %}
+                                <th>{{ col }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for i, row in preview_rows | enumerate %}
+                            <tr>
+                                <td class="text-secondary small">{{ i + 1 }}</td>
+                                {% for col in columns %}
+                                <td class="text-light small text-truncate" style="max-width: 140px;" title="{{ row[col] }}">
+                                    {% if row[col] is none or row[col] != row[col] %}
+                                        <span class="badge bg-danger-subtle text-danger px-2 py-1 rounded-2" style="font-size:0.65rem;">NULL</span>
+                                    {% else %}
+                                        {{ row[col] }}
+                                    {% endif %}
+                                </td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5 text-secondary-custom">
+                    <i class="bi bi-inbox fs-1 mb-2 d-block"></i>
+                    No cleaned rows available to preview.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

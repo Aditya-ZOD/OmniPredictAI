@@ -61,3 +61,14 @@ CREATE TABLE IF NOT EXISTS prediction_history (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (dataset_id) REFERENCES datasets(id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS assistant_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    dataset_id INTEGER NOT NULL,
+    question TEXT NOT NULL,
+    response TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (dataset_id) REFERENCES datasets(id) ON DELETE CASCADE
+);

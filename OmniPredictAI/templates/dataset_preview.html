@@ -11,6 +11,7 @@
         </ol>
     </nav>
 
+
     <!-- Header -->
     <div class="row align-items-start mb-4 g-3">
         <div class="col">
@@ -28,7 +29,12 @@
                 </div>
             </div>
         </div>
-        <div class="col-auto">
+        <div class="col-auto d-flex gap-2">
+            <a href="{{ url_for('clean_dataset_page', dataset_id=record.id) }}"
+               class="btn btn-gradient-primary rounded-pill px-4"
+               id="cleanDatasetBtn">
+                <i class="bi bi-magic me-2"></i>Clean Dataset
+            </a>
             <a href="{{ url_for('dashboard') }}" class="btn btn-outline-light-custom rounded-pill px-4">
                 <i class="bi bi-arrow-left me-2"></i>Back
             </a>
@@ -132,8 +138,16 @@
                     <h5 class="text-light fw-bold mb-0">
                         <i class="bi bi-eye text-gradient-primary me-2"></i>Data Preview
                     </h5>
-                    <span class="text-secondary-custom small">First 10 rows</span>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="text-secondary-custom small d-none d-sm-inline">First 10 rows</span>
+                        <form class="d-flex gap-2" data-row-details-form data-dataset-id="{{ record.id }}">
+                            <label class="visually-hidden" for="rowNumberInput">Row number</label>
+                            <input class="form-control form-control-sm bg-dark border-secondary-subtle text-light row-number-input" id="rowNumberInput" type="search" placeholder="Row # or name" required>
+                            <button class="btn btn-sm btn-outline-info text-nowrap" type="submit"><i class="bi bi-search me-1"></i>Find row</button>
+                        </form>
+                    </div>
                 </div>
+                <div class="d-none mt-3" data-row-details-inline></div>
 
                 {% if preview_rows %}
                 <div class="table-responsive preview-table-wrapper">
@@ -170,6 +184,20 @@
                     No data available to preview.
                 </div>
                 {% endif %}
+            </div>
+        </div>
+    </div>
+    {% include '_assistant.html' %}
+</div>
+<div class="modal fade" id="rowDetailsModal" tabindex="-1" aria-labelledby="rowDetailsTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable modal-lg">
+        <div class="modal-content bg-dark-card border-secondary-subtle">
+            <div class="modal-header border-secondary-subtle">
+                <h5 class="modal-title text-light" id="rowDetailsTitle">Row details</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="rowDetailsBody">
+                <div class="text-secondary-custom">Select a row to view its complete details.</div>
             </div>
         </div>
     </div>

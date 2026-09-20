@@ -1,0 +1,375 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4 px-4 px-lg-5">
+
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb breadcrumb-custom">
+            <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}"
+                    class="text-secondary-custom text-decoration-none">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('dataset_preview', dataset_id=record.id) }}"
+                    class="text-secondary-custom text-decoration-none">{{ record.original_name }}</a></li>
+            <li class="breadcrumb-item active text-light" aria-current="page">Clean Dataset</li>
+        </ol>
+    </nav>
+
+
+    <!-- Page Header -->
+    <div class="row align-items-center mb-4 g-3">
+        <div class="col">
+            <h1 class="fw-bold text-light fs-2 mb-1">
+                <i class="bi bi-magic text-gradient-primary me-2"></i>Data Cleaning Studio
+            </h1>
+            <p class="text-secondary-custom mb-0">
+                Choose automatic or custom manual cleaning for <strong class="text-light">{{ record.original_name }}</strong>
+            </p>
+        </div>
+        <div class="col-auto">
+            <a href="{{ url_for('dataset_preview', dataset_id=record.id) }}"
+                class="btn btn-outline-light-custom rounded-pill px-4">
+                <i class="bi bi-arrow-left me-2"></i>Back
+            </a>
+        </div>
+    </div>
+
+    <!-- Mode Selector Pills -->
+    <ul class="nav nav-pills mb-4 gap-2" id="cleanModeTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active rounded-pill px-4 py-2" id="auto-tab" data-bs-toggle="tab"
+                    data-bs-target="#auto-pane" type="button" role="tab" aria-controls="auto-pane" aria-selected="true">
+                <i class="bi bi-stars me-2"></i>Smart Auto-Clean
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link rounded-pill px-4 py-2" id="manual-tab" data-bs-toggle="tab"
+                    data-bs-target="#manual-pane" type="button" role="tab" aria-controls="manual-pane" aria-selected="false">
+                <i class="bi bi-sliders me-2"></i>Custom Manual Clean
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="cleanModeTabsContent">
+
+        <!-- ── TAB 1: Smart Auto-Clean ────────────────────────────────── -->
+        <div class="tab-pane fade show active" id="auto-pane" role="tabpanel" aria-labelledby="auto-tab">
+            <!-- Health score banner -->
+            {% set issues = (1 if duplicate_count > 0 else 0) + (1 if total_missing > 0 else 0) + (1 if formatted_cols | length > 0 else 0) %}
+            {% set health = 100 - (issues * 25) %}
+            <div class="datasets-card rounded-4 border p-4 mb-4
+                {% if issues == 0 %}border-success-subtle{% elif issues == 1 %}border-warning-subtle{% else %}border-danger-subtle{% endif %}">
+                <div class="row align-items-center g-3">
+                    <div class="col-md-7">
+                        <div class="d-flex align-items-center gap-4">
+                            <!-- Score ring -->
+                            <div class="health-ring flex-shrink-0" style="position:relative;width:80px;height:80px;">
+                                <svg width="80" height="80" viewBox="0 0 80 80" style="transform:rotate(-90deg);">
+                                    <circle cx="40" cy="40" r="34" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="8"/>
+                                    <circle cx="40" cy="40" r="34" fill="none"
+                                        stroke="{% if issues == 0 %}#22c55e{% elif issues == 1 %}#f59e0b{% else %}#ef4444{% endif %}"
+                                        stroke-width="8"
+                                        stroke-dasharray="{{ (health / 100 * 213.6) | round(1) }} 213.6"
+                                        stroke-linecap="round"/>
+                                </svg>
+                                <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
+                                    <span class="fw-bold text-light" style="font-size:1.1rem;">{{ health }}%</span>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="text-light fw-bold fs-5 mb-1">
+                                    {% if issues == 0 %}Dataset is Clean ✓
+                                    {% elif issues == 1 %}Minor Issues Found
+                                    {% elif issues == 2 %}Moderate Issues Found
+                                    {% else %}Multiple Issues Found
+                                    {% endif %}
+                                </div>
+                                <div class="text-secondary-custom small">
+                                    {% if issues == 0 %}
+                                        No cleaning needed — your dataset looks great!
+                                    {% else %}
+                                        Auto-clean will fix <strong class="text-light">{{ issues }} issue type{{ 's' if issues > 1 }}</strong> automatically.
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-5 text-md-end">
+                        <form action="{{ url_for('run_clean_dataset', dataset_id=record.id) }}" method="POST" id="autoCleanForm">
+                            <input type="hidden" name="missing_strategy"      value="auto">
+                            <input type="hidden" name="remove_duplicates"     value="on">
+                            <input type="hidden" name="fix_formatted_numbers" value="on">
+                            <button type="submit" class="btn btn-gradient-primary rounded-pill px-5 py-3 fw-semibold" id="autoCleanBtn">
+                                <span id="autoCleanBtnText"><i class="bi bi-download me-2"></i>Auto-Clean &amp; Save</span>
+                                <span class="spinner-border spinner-border-sm d-none ms-2" id="autoCleanSpinner"></span>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Diagnostics grid -->
+            <div class="row g-3 mb-4">
+                <!-- Duplicates -->
+                <div class="col-md-4">
+                    <div class="stat-card rounded-4 border p-4 h-100 {% if duplicate_count > 0 %}border-warning-subtle{% else %}border-success-subtle{% endif %}">
+                        <div class="d-flex align-items-center gap-3 mb-3">
+                            <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0
+                                {% if duplicate_count > 0 %}bg-warning-subtle text-warning{% else %}bg-success-subtle text-success{% endif %}"
+                                 style="width:44px;height:44px;">
+                                <i class="bi bi-{% if duplicate_count > 0 %}files{% else %}check-circle{% endif %} fs-5"></i>
+                            </div>
+                            <div>
+                                <span class="text-secondary-custom small d-block">Duplicate Rows</span>
+                                <h3 class="{% if duplicate_count > 0 %}text-warning{% else %}text-success{% endif %} fw-bold mb-0">{{ duplicate_count }}</h3>
+                            </div>
+                        </div>
+                        <p class="text-secondary-custom small mb-0">
+                            {% if duplicate_count > 0 %}Will be removed automatically.{% else %}No duplicate rows found.{% endif %}
+                        </p>
+                    </div>
+                </div>
+                <!-- Missing Values -->
+                <div class="col-md-4">
+                    <div class="stat-card rounded-4 border p-4 h-100 {% if total_missing > 0 %}border-warning-subtle{% else %}border-success-subtle{% endif %}">
+                        <div class="d-flex align-items-center gap-3 mb-3">
+                            <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0
+                                {% if total_missing > 0 %}bg-warning-subtle text-warning{% else %}bg-success-subtle text-success{% endif %}"
+                                 style="width:44px;height:44px;">
+                                <i class="bi bi-{% if total_missing > 0 %}bandaid{% else %}check-circle{% endif %} fs-5"></i>
+                            </div>
+                            <div>
+                                <span class="text-secondary-custom small d-block">Missing Cells</span>
+                                <h3 class="{% if total_missing > 0 %}text-warning{% else %}text-success{% endif %} fw-bold mb-0">{{ "{:,}".format(total_missing) }}</h3>
+                            </div>
+                        </div>
+                        <p class="text-secondary-custom small mb-0">
+                            {% if total_missing > 0 %}Imputed using Scaled KNN values.{% else %}Dataset is fully complete.{% endif %}
+                        </p>
+                    </div>
+                </div>
+                <!-- Formatted Numbers -->
+                <div class="col-md-4">
+                    <div class="stat-card rounded-4 border p-4 h-100 {% if formatted_cols | length > 0 %}border-info-subtle{% else %}border-success-subtle{% endif %}">
+                        <div class="d-flex align-items-center gap-3 mb-3">
+                            <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0
+                                {% if formatted_cols | length > 0 %}bg-info-subtle text-info{% else %}bg-success-subtle text-success{% endif %}"
+                                 style="width:44px;height:44px;">
+                                <i class="bi bi-{% if formatted_cols | length > 0 %}magic{% else %}check-circle{% endif %} fs-5"></i>
+                            </div>
+                            <div>
+                                <span class="text-secondary-custom small d-block">Formatted Strings</span>
+                                <h3 class="{% if formatted_cols | length > 0 %}text-info{% else %}text-success{% endif %} fw-bold mb-0">{{ formatted_cols | length }}</h3>
+                            </div>
+                        </div>
+                        <p class="text-secondary-custom small mb-0">
+                            {% if formatted_cols | length > 0 %}Convert currency/percentages to float.{% else %}No formatting issues detected.{% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Health check table -->
+            <div class="datasets-card rounded-4 border border-secondary-subtle p-4">
+                <h5 class="text-light fw-bold mb-3"><i class="bi bi-table text-gradient-primary me-2"></i>Automatic Cleaning Plan</h5>
+                <div class="table-responsive">
+                    <table class="table table-dark-custom table-sm mb-0">
+                        <thead>
+                            <tr>
+                                <th>Column</th>
+                                <th>Type</th>
+                                <th>Missing Values</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for col in columns %}
+                            <tr>
+                                <td>
+                                    <span class="text-light fw-semibold small">{{ col }}</span>
+                                    {% if col in formatted_cols %}<span class="badge bg-info-subtle text-info rounded-pill px-2 ms-1" style="font-size:0.6rem;">$/%</span>{% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge rounded-pill px-2
+                                        {% if 'int' in dtypes[col] %}bg-primary-subtle text-primary
+                                        {% elif 'float' in dtypes[col] %}bg-info-subtle text-info
+                                        {% elif 'object' in dtypes[col] %}bg-success-subtle text-success
+                                        {% else %}bg-secondary-subtle text-secondary{% endif %}" style="font-size:0.65rem;">{{ dtypes[col] }}</span>
+                                </td>
+                                <td>{{ missing[col] }} ({{ missing_pct[col] }}%)</td>
+                                <td>
+                                    {% if missing[col] > 0 and missing_pct[col] > 50 %}
+                                    <span class="badge bg-danger-subtle text-danger rounded-pill px-2" style="font-size:0.65rem;">Drop column</span>
+                                    {% elif missing[col] > 0 and 'object' in dtypes[col] %}
+                                    <span class="badge bg-warning-subtle text-warning rounded-pill px-2" style="font-size:0.65rem;">Impute (Mode)</span>
+                                    {% elif missing[col] > 0 %}
+                                    <span class="badge bg-warning-subtle text-warning rounded-pill px-2" style="font-size:0.65rem;">Impute (KNN)</span>
+                                    {% elif col in formatted_cols %}
+                                    <span class="badge bg-info-subtle text-info rounded-pill px-2" style="font-size:0.65rem;">Fix Format</span>
+                                    {% else %}
+                                    <span class="badge bg-success-subtle text-success rounded-pill px-2" style="font-size:0.65rem;">Keep</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── TAB 2: Custom Manual Clean ─────────────────────────────── -->
+        <div class="tab-pane fade" id="manual-pane" role="tabpanel" aria-labelledby="manual-tab">
+            <form action="{{ url_for('run_clean_dataset', dataset_id=record.id) }}" method="POST" id="manualCleanForm">
+                <div class="row g-4">
+                    <!-- Left: Control configurations -->
+                    <div class="col-lg-5">
+                        <div class="datasets-card rounded-4 border border-secondary-subtle p-4 h-100">
+                            <h5 class="text-light fw-bold mb-4"><i class="bi bi-sliders text-gradient-primary me-2"></i>Configure Manual Cleaning</h5>
+
+                            <!-- Duplicates Toggle -->
+                            <div class="mb-4">
+                                <label class="form-label text-light fw-semibold small d-flex align-items-center gap-2 mb-2">
+                                    <i class="bi bi-files text-warning"></i>Remove Duplicates
+                                </label>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="customRemoveDuplicates" name="remove_duplicates" checked>
+                                    <label class="form-check-label text-secondary-custom small" for="customRemoveDuplicates">Remove exact duplicate rows</label>
+                                </div>
+                            </div>
+
+                            <!-- Formatting Fixes Toggle -->
+                            <div class="mb-4">
+                                <label class="form-label text-light fw-semibold small d-flex align-items-center gap-2 mb-2">
+                                    <i class="bi bi-magic text-info"></i>Fix Formatting
+                                </label>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="customFixFormatted" name="fix_formatted_numbers" checked>
+                                    <label class="form-check-label text-secondary-custom small" for="customFixFormatted">Strip symbols like currency ($) and percentages (%)</label>
+                                </div>
+                            </div>
+
+                            <!-- Missing Value Strategy Select -->
+                            <div class="mb-4">
+                                <label class="form-label text-light fw-semibold small" for="customMissingStrategy">
+                                    <i class="bi bi-bandaid text-danger me-1"></i>Imputation Strategy
+                                </label>
+                                <select name="missing_strategy" id="customMissingStrategy" class="form-select bg-dark border-secondary-subtle text-light rounded-3">
+                                    <option value="auto">Smart Auto-Impute (KNN for numericals, Mode for categorical)</option>
+                                    <option value="median">Fill numericals with Median / categorical with Mode</option>
+                                    <option value="mean">Fill numericals with Mean / categorical with Mode</option>
+                                    <option value="mode">Fill all columns with Mode</option>
+                                    <option value="drop_rows">Drop rows containing any missing value</option>
+                                </select>
+                            </div>
+
+                            <!-- Submit button -->
+                            <button type="submit" class="btn btn-gradient-primary w-100 rounded-pill py-3 fw-semibold mt-3" id="manualCleanBtn">
+                                <span id="manualCleanBtnText"><i class="bi bi-play-circle me-2"></i>Run Custom Clean</span>
+                                <span class="spinner-border spinner-border-sm d-none ms-2" id="manualCleanSpinner"></span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Right: Drop columns selection list -->
+                    <div class="col-lg-7">
+                        <div class="datasets-card rounded-4 border border-secondary-subtle p-4 h-100">
+                            <h5 class="text-light fw-bold mb-2"><i class="bi bi-dash-circle text-gradient-primary me-2"></i>Drop Columns manually</h5>
+                            <p class="text-secondary-custom small mb-4">Select any columns you want to permanently discard from the dataset.</p>
+
+                            <div class="columns-drop-list rounded-3 border border-secondary-subtle p-3" style="max-height: 380px; overflow-y: auto;">
+                                {% for col in columns %}
+                                <div class="form-check mb-2 p-2 rounded-2 hover-bg-dark border border-transparent" id="drop-row-wrapper-{{ loop.index }}">
+                                    <input class="form-check-input ms-0 me-2" type="checkbox" name="columns_to_drop" value="{{ col }}" id="drop_col_{{ loop.index }}">
+                                    <label class="form-check-label d-flex align-items-center justify-content-between w-100" for="drop_col_{{ loop.index }}">
+                                        <span class="text-light small text-truncate fw-semibold" style="max-width:180px;" id="drop-label-{{ loop.index }}">{{ col }}</span>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="badge rounded-pill px-2 py-0
+                                                {% if 'int' in dtypes[col] %}bg-primary-subtle text-primary
+                                                {% elif 'float' in dtypes[col] %}bg-info-subtle text-info
+                                                {% elif 'object' in dtypes[col] %}bg-success-subtle text-success
+                                                {% else %}bg-secondary-subtle text-secondary{% endif %}" style="font-size:0.65rem;">{{ dtypes[col] }}</span>
+                                            {% if missing[col] > 0 %}
+                                            <span class="badge bg-warning-subtle text-warning rounded-pill px-2" style="font-size:0.65rem;">{{ missing_pct[col] }}% empty</span>
+                                            {% endif %}
+                                        </div>
+                                    </label>
+                                </div>
+                                {% endfor %}
+                            </div>
+
+                            <div class="d-flex gap-2 mt-3">
+                                <button type="button" class="btn btn-sm btn-outline-light-custom rounded-pill px-3" id="selectAllCols">Select All</button>
+                                <button type="button" class="btn btn-sm btn-outline-light-custom rounded-pill px-3" id="clearAllCols">Clear All</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    // Select/clear dropdown columns checkboxes in manual mode
+    const selectAllBtn = document.getElementById('selectAllCols');
+    const clearAllBtn = document.getElementById('clearAllCols');
+
+    if (selectAllBtn) {
+        selectAllBtn.addEventListener('click', function () {
+            document.querySelectorAll('input[name="columns_to_drop"]').forEach(cb => {
+                cb.checked = true;
+                cb.dispatchEvent(new Event('change'));
+            });
+        });
+    }
+
+    if (clearAllBtn) {
+        clearAllBtn.addEventListener('click', function () {
+            document.querySelectorAll('input[name="columns_to_drop"]').forEach(cb => {
+                cb.checked = false;
+                cb.dispatchEvent(new Event('change'));
+            });
+        });
+    }
+
+    // Highlight row decoration when manual column drops are selected
+    document.querySelectorAll('input[name="columns_to_drop"]').forEach(function (cb) {
+        cb.addEventListener('change', function () {
+            const idx = this.id.replace('drop_col_', '');
+            const rowWrapper = document.getElementById('drop-row-wrapper-' + idx);
+            const labelText = document.getElementById('drop-label-' + idx);
+            if (rowWrapper && labelText) {
+                if (this.checked) {
+                    rowWrapper.style.opacity = '0.4';
+                    rowWrapper.style.background = 'rgba(239, 68, 68, 0.08)';
+                    rowWrapper.style.borderColor = 'rgba(239, 68, 68, 0.2)';
+                    labelText.style.textDecoration = 'line-through';
+                } else {
+                    rowWrapper.style.opacity = '';
+                    rowWrapper.style.background = '';
+                    rowWrapper.style.borderColor = '';
+                    labelText.style.textDecoration = '';
+                }
+            }
+        });
+    });
+
+    // Spinners on submit
+    ['autoCleanForm', 'manualCleanForm'].forEach(function (id) {
+        const form = document.getElementById(id);
+        if (!form) return;
+        form.addEventListener('submit', function () {
+            const btn = document.getElementById(id === 'autoCleanForm' ? 'autoCleanBtn' : 'manualCleanBtn');
+            if (btn) {
+                btn.disabled = true;
+                const txt = btn.querySelector('span:not(.spinner-border)');
+                const spin = btn.querySelector('.spinner-border');
+                if (txt) txt.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Cleaning…';
+                if (spin) spin.classList.remove('d-none');
+            }
+        });
+    });
+})();
+</script>
+{% endblock %}

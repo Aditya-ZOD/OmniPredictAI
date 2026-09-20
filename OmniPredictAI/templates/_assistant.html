@@ -1,0 +1,42 @@
+<section class="assistant-panel datasets-card rounded-4 border border-secondary-subtle p-4 p-lg-5 mt-4" data-assistant-dataset="{{ record.id }}" aria-labelledby="assistantTitle">
+    <div class="d-flex align-items-start gap-3 mb-4">
+        <div class="assistant-icon"><i class="bi bi-robot"></i></div>
+        <div>
+            <div class="eyebrow-label mb-2">AI Copilot Chatbot</div>
+            <h2 class="text-light fw-bold fs-4 mb-1" id="assistantTitle">Ask Anything — AI Chatbot & Dataset Assistant</h2>
+            <p class="text-secondary-custom small mb-0">Ask general AI/ML questions, get dataset insights, or request dataset updates.</p>
+        </div>
+    </div>
+    <div class="assistant-messages border border-secondary-subtle rounded-3 p-3 mb-3" data-assistant-messages aria-live="polite">
+        {% if assistant_history %}
+            {% for exchange in assistant_history %}
+            <div class="assistant-message assistant-message-user">{{ exchange.question }}</div>
+            <div class="assistant-message assistant-message-bot">{{ exchange.response }}</div>
+            {% endfor %}
+        {% else %}
+            <div class="assistant-message assistant-message-bot"><i class="bi bi-stars me-2"></i>Hello! I am your AI Copilot. Ask me any general questions (e.g. <em>"What is overfitting?"</em>, <em>"Classification vs Regression"</em>), programming concepts, or dataset insights!</div>
+        {% endif %}
+    </div>
+    <div class="assistant-prompts d-flex flex-wrap gap-2 mb-3" aria-label="Suggested questions">
+        <button type="button" class="btn btn-sm btn-outline-light-custom rounded-pill" data-assistant-prompt="What is overfitting and how to prevent it?">What is overfitting?</button>
+        <button type="button" class="btn btn-sm btn-outline-light-custom rounded-pill" data-assistant-prompt="Which columns have missing values?">Missing values</button>
+        <button type="button" class="btn btn-sm btn-outline-light-custom rounded-pill" data-assistant-prompt="Explain difference between classification and regression">Classification vs Regression</button>
+        <button type="button" class="btn btn-sm btn-outline-light-custom rounded-pill" data-assistant-prompt="Which columns are numeric and what are their averages?">Numeric averages</button>
+    </div>
+    <form class="d-flex gap-2" data-assistant-form>
+        <label class="visually-hidden" for="assistantQuestion-{{ record.id }}">Ask AI Copilot</label>
+        <input class="form-control bg-dark border-secondary-subtle text-light rounded-3" id="assistantQuestion-{{ record.id }}" data-assistant-input maxlength="2000" placeholder="Ask any question (e.g. 'What is overfitting?', 'Missing values', 'Hello!')" autocomplete="off" required>
+        <button class="btn btn-outline-light-custom rounded-3 px-3" type="button" data-assistant-mic aria-label="Start voice question" title="Ask by voice">
+            <i class="bi bi-mic-fill"></i><span class="visually-hidden">Ask by voice</span>
+        </button>
+        <button class="btn btn-gradient-primary rounded-3 px-3" type="submit" data-assistant-send>
+            <i class="bi bi-send-fill"></i><span class="visually-hidden">Ask assistant</span>
+        </button>
+    </form>
+    <div class="small text-secondary-custom mt-2" data-assistant-status role="status"></div>
+    <div class="d-flex justify-content-end mt-2">
+        <button class="btn btn-sm btn-link text-secondary-custom p-0" type="button" data-assistant-speech aria-pressed="false">
+            <i class="bi bi-volume-up me-1"></i>Read answers aloud
+        </button>
+    </div>
+</section>

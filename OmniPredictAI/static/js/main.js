@@ -4,6 +4,10 @@
 document.addEventListener('DOMContentLoaded', () => {
     console.log('🚀 OmniPredict AI Initialized Successfully.');
 
+    const escapeHtml = value => String(value).replace(/[&<>'"]/g, character => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+    }[character]));
+
     const root = document.documentElement;
     const body = document.body;
     const themeToggle = document.getElementById('themeToggle');
@@ -31,6 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ── Homepage: Animate prediction confidence chart bars ──────────────────
+
     const chartBars = document.querySelectorAll('.mini-chart-graphic .bar');
     if (chartBars.length > 0) {
         setInterval(() => {
@@ -273,4 +278,215 @@ document.addEventListener('DOMContentLoaded', () => {
         if (savedTarget) updateSummaryCards(savedTarget);
 
     } // end configure-target block
+
+    // ── Full dataset row details ────────────────────────────────────────────
+    const rowDetailsForm = document.querySelector('[data-row-details-form]');
+    if (rowDetailsForm) {
+        const rowInput = rowDetailsForm.querySelector('.row-number-input');
+        const modalElement = document.getElementById('rowDetailsModal');
+        const modalTitle = document.getElementById('rowDetailsTitle');
+        const modalBody = document.getElementById('rowDetailsBody');
+        const inlineDetails = document.querySelector('[data-row-details-inline]');
+        const datasetId = rowDetailsForm.dataset.datasetId;
+        const modal = window.bootstrap?.Modal.getOrCreateInstance(modalElement);
+
+        const renderMatches = matches => matches.map(match => `
+            <h6 class="text-light border-bottom border-secondary-subtle pb-2 mb-2">Row ${match.row_number}</h6>
+            ${Object.entries(match.values).map(([column, value]) => `
+                <div class="row border-bottom border-secondary-subtle py-2">
+                    <div class="col-sm-4 text-secondary-custom small fw-semibold">${escapeHtml(column)}</div>
+                    <div class="col-sm-8 text-light small text-break">${escapeHtml(value == null || value === '' ? '(empty)' : String(value))}</div>
+                </div>
+            `).join('')}
+        `).join('<hr class="border-secondary-subtle my-3">');
+
+        rowDetailsForm.addEventListener('submit', async event => {
+            event.preventDefault();
+            const query = rowInput.value.trim();
+            if (!datasetId || !query) {
+                modalBody.innerHTML = '<div class="text-danger">Enter a row number or search text.</div>';
+                modal?.show();
+                return;
+            }
+            modalTitle.textContent = 'Row details';
+            modalBody.innerHTML = '<div class="text-secondary-custom">Finding complete row...</div>';
+            if (modal) modal.show();
+            try {
+                const response = await fetch(`/dataset/${datasetId}/row-search?q=${encodeURIComponent(query)}`);
+                const contentType = response.headers.get('content-type') || '';
+                if (!contentType.includes('application/json')) {
+                    throw new Error('Your login session expired. Refresh the page and try again.');
+                }
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error || 'Could not load row.');
+                const rendered = renderMatches(result.matches);
+                modalBody.innerHTML = rendered;
+                if (inlineDetails) {
+                    inlineDetails.innerHTML = rendered;
+                    inlineDetails.classList.remove('d-none');
+                }
+            } catch (error) {
+                const message = `<div class="text-danger">${escapeHtml(error.message)}</div>`;
+                modalBody.innerHTML = message;
+                if (inlineDetails) {
+                    inlineDetails.innerHTML = message;
+                    inlineDetails.classList.remove('d-none');
+                }
+            }
+        });
+    }
+
+    // ── Dataset Copilot ─────────────────────────────────────────────────────
+    document.querySelectorAll('[data-assistant-dataset]').forEach(panel => {
+        const datasetId = panel.dataset.assistantDataset;
+        const form = panel.querySelector('[data-assistant-form]');
+        const input = panel.querySelector('[data-assistant-input]');
+        const messages = panel.querySelector('[data-assistant-messages]');
+        const status = panel.querySelector('[data-assistant-status]');
+        const send = panel.querySelector('[data-assistant-send]');
+        const mic = panel.querySelector('[data-assistant-mic]');
+        const speech = panel.querySelector('[data-assistant-speech]');
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let readAnswersAloud = false;
+        let recognition = null;
+
+        const addMessage = (text, bot = true) => {
+            const item = document.createElement('div');
+            item.className = `assistant-message ${bot ? 'assistant-message-bot' : 'assistant-message-user'}`;
+            item.textContent = text;
+            messages.appendChild(item);
+            messages.scrollTop = messages.scrollHeight;
+        };
+
+        const setBusy = (busy) => {
+            send.disabled = busy;
+            input.disabled = busy;
+            mic.disabled = busy;
+            panel.querySelectorAll('[data-assistant-prompt]').forEach(prompt => {
+                prompt.disabled = busy;
+            });
+            status.textContent = busy ? 'Analyzing the complete dataset...' : '';
+        };
+
+        const speak = text => {
+            if (!readAnswersAloud || !('speechSynthesis' in window) || !text) return;
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.resume();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = document.documentElement.lang || 'en-US';
+            utterance.onstart = () => { status.textContent = 'Reading answer aloud...'; };
+            utterance.onend = () => { status.textContent = ''; };
+            utterance.onerror = () => { status.textContent = 'The browser could not read this answer aloud.'; };
+            window.speechSynthesis.speak(utterance);
+        };
+
+        speech.addEventListener('click', () => {
+            readAnswersAloud = !readAnswersAloud;
+            speech.setAttribute('aria-pressed', String(readAnswersAloud));
+            speech.classList.toggle('assistant-speech-active', readAnswersAloud);
+            if (!readAnswersAloud && 'speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                status.textContent = '';
+                return;
+            }
+            const latestAnswer = panel.querySelector('.assistant-message-bot:last-of-type');
+            speak(latestAnswer?.textContent.trim());
+        });
+
+        if (!('speechSynthesis' in window)) {
+            speech.disabled = true;
+            speech.title = 'Spoken answers are not supported in this browser';
+        }
+
+        if (!SpeechRecognition) {
+            mic.disabled = true;
+            mic.title = 'Voice input is not supported in this browser';
+        } else {
+            recognition = new SpeechRecognition();
+            recognition.lang = document.documentElement.lang || 'en-US';
+            recognition.interimResults = false;
+            recognition.maxAlternatives = 1;
+            recognition.addEventListener('start', () => {
+                mic.classList.add('assistant-listening');
+                mic.setAttribute('aria-label', 'Stop voice question');
+                status.textContent = 'Listening...';
+            });
+            recognition.addEventListener('result', event => {
+                input.value = event.results[0][0].transcript;
+                input.focus();
+                status.textContent = 'Voice question captured. Press send to ask it.';
+            });
+            recognition.addEventListener('error', event => {
+                status.textContent = event.error === 'not-allowed'
+                    ? 'Microphone permission was denied.'
+                    : 'Voice input could not be captured.';
+            });
+            recognition.addEventListener('end', () => {
+                mic.classList.remove('assistant-listening');
+                mic.setAttribute('aria-label', 'Start voice question');
+            });
+            mic.addEventListener('click', () => {
+                try { recognition.start(); } catch (error) { recognition.stop(); }
+            });
+        }
+
+        panel.querySelectorAll('[data-assistant-prompt]').forEach(prompt => {
+            prompt.addEventListener('click', () => {
+                input.value = prompt.dataset.assistantPrompt;
+                if (typeof form.requestSubmit === 'function') {
+                    form.requestSubmit();
+                } else {
+                    form.dispatchEvent(new Event('submit', {cancelable: true}));
+                }
+            });
+        });
+
+        form.addEventListener('submit', async event => {
+            event.preventDefault();
+            const question = input.value.trim();
+            if (!question) return;
+            addMessage(question, false);
+            input.value = '';
+            setBusy(true);
+            try {
+                const response = await fetch(`/dataset/${datasetId}/assistant`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({question})
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error || 'Assistant request failed.');
+                const answer = result.message || 'I could not form an answer.';
+                addMessage(answer);
+                speak(answer);
+                if (result.requires_confirmation && result.changes?.length) {
+                    const preview = result.changes.map(change =>
+                        `Row ${change.row_number}, ${change.column}: ${change.old_value ?? '(empty)'} -> ${change.new_value}`
+                    ).join('\n');
+                    addMessage(`Update preview:\n${preview}`);
+                    const confirm = document.createElement('button');
+                    confirm.className = 'btn btn-sm btn-warning-soft rounded-pill mt-2';
+                    confirm.textContent = 'Confirm update';
+                    confirm.addEventListener('click', async () => {
+                        confirm.disabled = true;
+                        try {
+                            const saved = await fetch(`/dataset/${datasetId}/assistant/confirm`, {method: 'POST'});
+                            const savedResult = await saved.json();
+                            addMessage(savedResult.message || savedResult.error || 'Update failed.');
+                            if (saved.ok) confirm.remove();
+                        } catch (error) {
+                            addMessage(error.message || 'Update failed.');
+                            confirm.disabled = false;
+                        }
+                    });
+                    messages.appendChild(confirm);
+                }
+            } catch (error) {
+                addMessage(error.message || 'Assistant request failed.');
+            } finally {
+                setBusy(false);
+                input.focus();
+            }
+        });
+    });
 });
